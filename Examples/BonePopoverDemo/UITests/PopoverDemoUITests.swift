@@ -1,0 +1,149 @@
+import XCTest
+
+final class PopoverDemoUITests: XCTestCase {
+    @MainActor
+    func testConfirmationInputAndLiveStyleSwitch() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo-home"]
+        app.launch()
+        app.cells["scene-0"].tap()
+        XCTAssertTrue(app.buttons["确认"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.otherElements["popover-ready"].waitForExistence(timeout: 5))
+        capture("center-dialog")
+        app.buttons["确认"].tap()
+        waitUntilHittable(app.cells["scene-1"])
+        app.cells["scene-1"].tap()
+        let input = app.textFields.firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        input.tap()
+        input.typeText("Bone SDK")
+        XCTAssertTrue(app.buttons["确认"].isHittable)
+        capture("keyboard-input")
+        app.buttons["确认"].tap()
+        waitUntilHittable(app.cells["scene-2"])
+        app.cells["scene-2"].tap()
+        XCTAssertTrue(app.buttons["切换风格"].waitForExistence(timeout: 5))
+        for _ in 0..<4 { app.buttons["切换风格"].tap() }
+        XCTAssertTrue(app.buttons["归档项目"].isHittable)
+        capture("action-sheet-brand-glass")
+        app.buttons["取消"].tap()
+        XCTAssertTrue(app.cells["scene-0"].isHittable)
+    }
+
+    @MainActor
+    func testInjectedFoldRegionsKeepActionsReachable() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo-home"]
+        app.launch()
+        let list = app.tables["demo-list"]
+        if !app.cells["scene-6"].isHittable { list.swipeUp() }
+        app.cells["scene-6"].tap()
+        let confirm = app.buttons["确认"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        XCTAssertTrue(confirm.isHittable)
+        XCTAssertTrue(confirm.frame.maxX <= app.frame.midX - 12 || confirm.frame.minX >= app.frame.midX + 12,
+                      "The action must remain entirely on one side of the fold.")
+        capture("injected-book-fold")
+        app.buttons["取消"].tap()
+        if !app.cells["scene-7"].isHittable { list.swipeUp() }
+        app.cells["scene-7"].tap()
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        XCTAssertTrue(confirm.isHittable)
+        XCTAssertTrue(confirm.frame.maxY <= app.frame.midY - 12 || confirm.frame.minY >= app.frame.midY + 12,
+                      "The action must remain entirely above or below the fold.")
+        capture("injected-tabletop-fold")
+        app.buttons["取消"].tap()
+    }
+
+    @MainActor
+    func testTitleAlignmentAndFullWidthButtons() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo-home"]
+        app.launch()
+        for (name, suffix) in [("左对齐", "left"), ("居中", "center"), ("右对齐", "right")] {
+            app.buttons["title-alignment"].tap()
+            app.buttons[name].tap()
+            app.cells["scene-0"].tap()
+            XCTAssertTrue(app.otherElements["popover-ready"].waitForExistence(timeout: 5))
+            let content = app.otherElements["popover-content"]
+            let title = app.staticTexts["popover-title"]
+            let confirm = app.buttons["popover-confirm"]
+            let cancel = app.buttons["取消"]
+            XCTAssertEqual(title.frame.minY - content.frame.minY, 24, accuracy: 1)
+            XCTAssertEqual(cancel.frame.minX - content.frame.minX, 24, accuracy: 1)
+            XCTAssertEqual(content.frame.maxX - confirm.frame.maxX, 24, accuracy: 1)
+            XCTAssertEqual(confirm.frame.minY, cancel.frame.minY, accuracy: 1)
+            XCTAssertEqual(confirm.frame.width, cancel.frame.width, accuracy: 1)
+            XCTAssertEqual(confirm.frame.minX - cancel.frame.maxX, 12, accuracy: 1)
+            XCTAssertTrue(confirm.isHittable)
+            capture("title-\(suffix)")
+            app.buttons["取消"].tap()
+            waitUntilHittable(app.buttons["title-alignment"])
+        }
+        app.cells["scene-2"].tap()
+        XCTAssertTrue(app.otherElements["popover-ready"].waitForExistence(timeout: 5))
+        let content = app.otherElements["popover-content"]
+        let title = app.staticTexts["popover-title"]
+        let action = app.buttons["归档项目"]
+        XCTAssertEqual(title.frame.minY - content.frame.minY, 24, accuracy: 1)
+        XCTAssertEqual(action.frame.minX - content.frame.minX, 24, accuracy: 1)
+        XCTAssertEqual(content.frame.maxX - action.frame.maxX, 24, accuracy: 1)
+        capture("sheet-title-right")
+        app.buttons["取消"].tap()
+    }
+
+    @MainActor
+    func testAlertOuterMarginsAndMaximumSize() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo-home"]
+        app.launch()
+        XCTAssertTrue(app.tables["demo-list"].waitForExistence(timeout: 10))
+        waitUntilHittable(app.cells["scene-0"])
+        let cases: [(String, CGFloat, CGFloat, CGFloat)] = [
+            ("scene-0", 32, 420, 600),
+            ("scene-8", 48, 360, 460),
+            ("scene-9", 32, 420, 600)
+        ]
+        for (scene, margin, maximumWidth, maximumHeight) in cases {
+            let row = app.cells[scene]
+            if !row.isHittable { app.tables["demo-list"].swipeUp() }
+            waitUntilHittable(row)
+            row.tap()
+            XCTAssertTrue(app.otherElements["popover-ready"].waitForExistence(timeout: 5))
+            let viewport = app.scrollViews.firstMatch
+            XCTAssertTrue(viewport.waitForExistence(timeout: 5))
+            XCTAssertGreaterThanOrEqual(viewport.frame.minX, app.frame.minX + margin - 1)
+            XCTAssertLessThanOrEqual(viewport.frame.maxX, app.frame.maxX - margin + 1)
+            XCTAssertLessThanOrEqual(viewport.frame.width, maximumWidth + 1)
+            XCTAssertLessThanOrEqual(viewport.frame.height, maximumHeight + 1)
+            capture("alert-sizing-\(scene)")
+            for _ in 0..<12 {
+                if app.buttons["取消"].isHittable { break }
+                viewport.swipeUp()
+            }
+            XCTAssertTrue(app.buttons["取消"].isHittable)
+            app.buttons["取消"].tap()
+            let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                !app.otherElements["popover-ready"].exists
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
+        }
+    }
+
+    @MainActor
+    private func waitUntilHittable(_ element: XCUIElement) {
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            element.exists && element.isHittable
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
+    }
+
+    @MainActor
+    private func capture(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}

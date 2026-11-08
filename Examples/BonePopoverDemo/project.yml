@@ -1,0 +1,70 @@
+name: BonePopoverDemo
+options:
+  bundleIdPrefix: dev.bone
+  deploymentTarget:
+    iOS: '15.0'
+packages:
+  BonePopoverKit:
+    path: ../..
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    TARGETED_DEVICE_FAMILY: '1,2'
+targets:
+  BonePopoverDemo:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    dependencies:
+      - package: BonePopoverKit
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: BonePopoverKit
+        UILaunchScreen: {}
+        NSUserActivityTypes: [dev.bone.window-demo]
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Default
+                UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).SceneDelegate
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+          - UIInterfaceOrientationPortraitUpsideDown
+  BonePopoverWindowTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: '17.0'
+    sources: [../../Tests/BonePopoverWindowTests]
+    dependencies:
+      - target: BonePopoverDemo
+      - package: BonePopoverKit
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+      TEST_HOST: $(BUILT_PRODUCTS_DIR)/BonePopoverDemo.app/BonePopoverDemo
+      BUNDLE_LOADER: $(TEST_HOST)
+  BonePopoverDemoUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: '17.0'
+    sources: [UITests]
+    dependencies:
+      - target: BonePopoverDemo
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+schemes:
+  BonePopoverDemo:
+    build:
+      targets:
+        BonePopoverDemo: all
+    test:
+      targets: [BonePopoverDemoUITests]
+  BonePopoverWindowTests:
+    build:
+      targets:
+        BonePopoverDemo: all
+    test:
+      targets: [BonePopoverWindowTests]

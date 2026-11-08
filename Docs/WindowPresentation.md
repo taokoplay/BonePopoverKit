@@ -1,6 +1,6 @@
 # 独立 Window 弹窗
 
-本模式参考旧版“一弹窗一 Window”的能力，使用 `@MainActor`、值类型配置及按 Scene 隔离的窗口会话实现。内容继续由 BonePopoverKit 的样式、布局和动画系统管理。最低 iOS 15，无第三方运行依赖。
+独立 Window 模式为每次展示创建一个透明窗口，在指定 Scene 中管理弹窗的层级、导航、输入与关闭。内容由 BonePopoverKit 的样式、布局和动画系统管理。最低 iOS 15，无第三方运行依赖。
 
 ## 展示入口
 
@@ -10,11 +10,11 @@
 | `show(over: sourceWindow, animated:)` | 独立窗口，绑定源 Window 所属 Scene，推荐多 Window 业务使用 |
 | `show(in: scene, animated:)` | 独立窗口，明确指定 Scene，从该 Scene 找业务宿主 |
 | `show()` | 独立窗口，仅有一个前台活动 Scene 时自动选择上下文 |
-| `show(isNav: true)` | 兼容旧导航入口，自动选择唯一前台 Scene，为本次展示创建导航容器 |
+| `show(isNav: true)` | 自动选择唯一前台 Scene，创建带 UIKit 导航容器的独立窗口 |
 
 所有方法返回 `Bool`。实例已展示、已经附着其他控制器、源 Window 不可见/无 Scene/无根控制器、层级非法或上下文不明确时返回 false。自动入口不使用 AppDelegate.window，也不跨 Scene 猜测窗口；Scene 的 key Window 若是 SDK 弹窗，会沿会话记录找到业务宿主。没有 key 时仅接受唯一可识别的可见普通业务窗口。
 
-**行为迁移：** 本包早期版本的 `show()` / `show(in:)` 在页面中展示，现在改为独立窗口。需要原页面范围时用 `show(from:)`。旧子类重写 `show()` / `show(isNav:)` 时返回类型需为 `Bool`。
+页面内展示使用 `show(from:)`；独立窗口使用 `show(over:)`、`show(in:)` 或 `show()`。需要在弹窗上 push 页面时，在展示前将 `configuration.window.container` 设为 `.navigation`，或调用 `show(isNav: true)`。
 
 ```swift
 @MainActor
@@ -32,12 +32,23 @@ func showWindowAlert(from presenter: UIViewController) {
 
 所有配置位于 `configuration.window: PopoverWindowConfiguration`。
 
-| 属性 | 默认值 | 说明 |
-| --- | --- | --- |
-| `level` | `.alert - 1` | 固定策略下为实际层级；自动策略下为最低层级 |
-| `stacking` | `.aboveManagedPopovers` | 取最低层级、源 Window 与同 Scene 已有弹窗上方层级的最大值 |
-| `keyPolicy` | `.takeAndRestore` | 接管 key，关闭后恢复有效的前驱 Window |
-| `container` | `.plain` | 普通透明宿主；`.navigation` 提供 UIKit 导航栈 |
+下表默认值来自 `PopoverWindowConfiguration()`，字段通过 `configuration.window` 访问。
+
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `level` | 窗口层级 | `.alert - 1` | 固定策略下为实际层级；自动策略下为最低层级，展示前验证数值有限。 |
+| `stacking` | 窗口叠加策略 | `.aboveManagedPopovers` | 决定使用精确层级，还是自动显示在源窗口及同 Scene 已有弹窗上方。 |
+| `keyPolicy` | 输入接管策略 | `.takeAndRestore` | 决定是否接管 key Window，以及关闭时是否恢复有效的输入窗口。 |
+| `container` | 页面容器 | `.plain` | 选择透明普通宿主或 UIKit 导航容器。 |
+
+| 策略字段 | 取值 | 名称 | 说明 |
+| --- | --- | --- | --- |
+| `stacking` | `.aboveManagedPopovers` | 自动叠加 | 使用配置层级作为下限，并高于源窗口和同 Scene 已管理弹窗。 |
+| `stacking` | `.fixed` | 固定层级 | 严格使用 `level`，允许 App 自行约定通知或遮罩层级。 |
+| `keyPolicy` | `.takeAndRestore` | 接管并恢复 | 展示时接管 key，关闭后按会话恢复链选择有效窗口和焦点。 |
+| `keyPolicy` | `.preserveCurrent` | 保留当前输入 | 保持非 key，不接管业务键盘，适合无需文本输入的浮层。 |
+| `container` | `.plain` | 普通容器 | 使用透明根宿主，不创建导航栈。 |
+| `container` | `.navigation` | 导航容器 | 创建 UIKit 导航栈，可通过 `navigationController` push/pop。 |
 
 `.fixed` 严格采用配置的 level，可配合通知、护眼遮罩等业务约定。自动策略保证高于指定源 Window 及同 Scene 已管理的弹窗，不改变其他业务窗口，不承诺高于系统窗口或未来出现的任意更高窗口。无穷、NaN 或层级递增溢出会拒绝展示。
 
@@ -62,7 +73,7 @@ func showNavigationPopover(over sourceWindow: UIWindow) {
 
 导航容器根页面默认隐藏导航栏。详情页可按业务需要显示导航栏、push/pop；弹窗作为透明宿主的子控制器，其 navigationController 是窗口导航容器。push 后宿主暂时离屏不会触发 hostRemoved；在详情页调用原弹窗的 `hidden()` 会关闭整个窗口会话。根宿主手动管理弹窗出现/消失回调，避免导航容器重复转发。
 
-状态栏和支持方向在展示前从源业务控制器捕获，避免读取浮层自身造成递归。沿用源 Window 的显式浅色/深色覆盖，未指定时跟随 Scene 系统环境。SDK 不复制 MainTabNavController、全局导航栏 appearance 或 App 阅读转场。
+状态栏和支持方向在展示前从源业务控制器捕获，避免读取浮层自身造成递归。使用源 Window 显式设置的浅色/深色模式；未指定时跟随 Scene 系统环境。
 
 ## 触摸与输入
 
@@ -109,4 +120,4 @@ xcodebuild test -project Examples/BonePopoverDemo/BonePopoverDemo.xcodeproj \
 
 真实点击测试在 `Examples/BonePopoverDemo/UITests/PopoverWindowUITests.swift`，使用 `BonePopoverDemo` scheme。Demo 以 `window-*` 标识统计自身窗口，同时显示 Scene 全部窗口类型；UIKit 的 `UITextEffectsWindow` 等系统窗口不属于 SDK 释放断言。托管测试另行检查窗口/根控制器释放、观察器注销、回调重入和 Scene 清理。
 
-实际执行结果和多 Scene 验证边界见 [Validation.md](Validation.md)。旧管理器的 queue/interrupt/replace/unique、优先级和 identifier 去重属于业务调度能力，本轮未一并实现；可在 App 中协调展示请求。
+实际执行结果和多 Scene 验证边界见 [Validation.md](Validation.md)。需要排队、优先级、替换或 identifier 去重时，由 App 协调展示请求。

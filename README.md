@@ -1,20 +1,20 @@
 # BonePopoverKit
 
-面向 iOS 15+ 的 UIKit 弹窗 Swift Package。沿用 `BonePopoverView: UIViewController`、`baseView`、`show()`、`hidden()` 的基本使用方式，将内容样式、材质外观、布局和动画分别配置。无第三方依赖。
+BonePopoverKit 是面向 iOS 15+ 的 UIKit 弹窗组件，通过 Swift Package 集成，无第三方依赖。提供确认框、输入框、操作列表和自定义内容，支持页面内展示、独立 Window、导航、液态玻璃、动画与触摸穿透。
 
-完整接入与配置说明见 [BonePopoverKit 使用说明](Docs/UsageGuide.md)，包含统一字体与间距、标题对齐、液态玻璃、背景与穿透组合、多方向关闭、自定义内容和常见问题。
+内容样式、材质外观、布局、动画和关闭交互分别配置，可在显示期间调整。通过可继承的 `BonePopoverView` 和内容容器 `baseView` 构建业务弹窗，组件负责展示、布局和关闭生命周期。
 
-这是新 SDK 的可运行初版，**不是旧 CLPopoverManager 及全部业务子类的二进制或源码兼容替代品**。现有项目未被自动迁移。先阅读 [项目清点](Docs/Inventory.md) 和 [迁移说明](Docs/Migration.md)。
+完整接入、参数和示例见 [BonePopoverKit 使用说明](Docs/UsageGuide.md)。
 
 ## 安装
 
-Xcode → File → Add Package Dependencies → Add Local，选择本目录，给 App target 添加 `BonePopoverKit` product。包内依赖可使用：
+Xcode → File → Add Package Dependencies，输入仓库地址 `https://github.com/taokoplay/BonePopoverKit.git`，选择 `main` 分支，再给 App target 添加 `BonePopoverKit` product。其他 Swift Package 可使用：
 
 ```swift
-.package(path: "../BonePopoverKit")
+.package(url: "https://github.com/taokoplay/BonePopoverKit.git", branch: "main")
 ```
 
-本地目录目前没有远程发布地址或版本 tag；不要填写臆造的 Git URL。公开发布前由维护者确定仓库和许可证。
+本地开发也可通过 Add Local 选择组件目录，或使用 `.package(path: "../BonePopoverKit")`。
 
 最低部署版本 iOS 15；Package tools version 5.9。新 API 同时受编译器条件与系统版本保护：
 
@@ -42,7 +42,7 @@ alert.titleAlignment = .center // .left / .center / .right，默认 .left
 alert.show(from: self)
 ```
 
-`show(from:)` 在指定控制器的 view 内展示；覆盖导航栏/标签栏时可传入容器控制器。需要跨业务 Window 显示时使用 `show(over: sourceWindow)`，或 `show(in: scene)` 明确目标 Scene。无参 `show()` 恢复旧版独立 Window 用法，只在恰好一个前台活动 Scene 时自动选择上下文；`show(isNav: true)` 提供独立导航容器。所有入口返回 `Bool`，展示失败不会遗留窗口。完整层级、key 恢复与生命周期说明见 [独立 Window 模式](Docs/WindowPresentation.md)。
+`show(from:)` 在指定控制器的 view 内展示；覆盖导航栏/标签栏时可传入容器控制器。需要跨业务 Window 显示时使用 `show(over: sourceWindow)`，或 `show(in: scene)` 明确目标 Scene。无参 `show()` 在恰好一个前台活动 Scene 时自动选择上下文并创建独立 Window；`show(isNav: true)` 创建带导航容器的独立 Window。所有入口返回 `Bool`，展示失败不会遗留窗口。完整说明见 [独立 Window 模式](Docs/WindowPresentation.md)。
 
 ```swift
 let alert = BoneAlertView(title: "独立窗口", message: "显示在源窗口所属的 Scene 中。") {}
@@ -53,7 +53,7 @@ if let sourceWindow = view.window {
 }
 ```
 
-`configuration.window` 还包含 `.takeAndRestore` / `.preserveCurrent` 的 key 策略，以及 `.plain` / `.navigation` 容器选项。窗口配置在本次展示时保存快照，下次展示应用变更；内容样式、材质、布局与触摸配置继续实时更新。`show()` / `show(in:)` 与本包早期版本相比改为独立窗口；页面模式明确使用 `show(from:)`。
+`configuration.window` 支持窗口层级、叠加、key 接管和导航容器策略。本次展示使用窗口配置的快照，修改在下次展示生效；内容样式、材质、布局与触摸配置支持显示期间更新。
 
 ```swift
 let input = BoneAlertView(title: "项目名称", placeholder: "输入名称") { name in
@@ -69,6 +69,63 @@ let sheet = BoneActionSheetView(title: "项目操作", actions: [
 ])
 sheet.show(from: self)
 ```
+
+## 配置参数
+
+每个字段单独列出名称、默认值和用途。通过 `popover.configuration` 访问下列配置分组：
+
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `contentStyle` | 内容样式 | `PopoverContentStyle()` | 字体、颜色、对齐、内部边距和按钮排列；完整字段见下表。 |
+| `appearance` | 材质外观 | `PopoverAppearance()` | 材质、圆角、边框、阴影和遮罩；完整字段见下表。 |
+| `layout` | 面板布局 | `PopoverLayout()` | 位置、尺寸、外部间距和区域避让，见 [布局参数](Docs/UsageGuide.md#layout)。 |
+| `animation` | 展示与关闭动画 | 随配置预设设置 | 时长、阻尼和隐藏端点，见 [动画参数](Docs/UsageGuide.md#animation)。 |
+| `window` | 独立窗口 | `PopoverWindowConfiguration()` | 层级、叠加、key 和导航容器，见 [窗口参数](Docs/WindowPresentation.md#窗口配置)。 |
+
+背景、点击、穿透、滑动与辅助功能开关见 [配置字段总表](Docs/UsageGuide.md#reference)。基础配置与各预设的默认值区别见 [布局预设](Docs/UsageGuide.md#layout)。
+
+### 内容样式 `configuration.contentStyle`
+
+下表默认值来自 `PopoverContentStyle()`。字体接受基础 `UIFont`，尺寸和间距单位为点。
+
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `titleFont` | 标题字体 | `.boldSystemFont(ofSize: 18)` | 确认框、输入框和操作列表的标题基础字体。 |
+| `messageFont` | 正文字体 | `.systemFont(ofSize: 17)` | 正文和说明文字的基础字体。 |
+| `buttonFont` | 按钮字体 | `.systemFont(ofSize: 17)` | 确认、取消及操作列表按钮的基础字体。 |
+| `inputFont` | 输入字体 | `.systemFont(ofSize: 17)` | 单字段输入框的基础字体。 |
+| `titleColor` | 标题颜色 | `.label` | 标题文字颜色，支持系统深浅色。 |
+| `messageColor` | 正文颜色 | `.secondaryLabel` | 正文文字颜色，支持系统深浅色。 |
+| `titleAlignment` | 标题对齐 | `.left` | 独立控制标题对齐，支持左、中、右等 `NSTextAlignment` 取值。 |
+| `messageAlignment` | 正文对齐 | `.natural` | 按正文书写方向对齐，也可明确指定。 |
+| `contentInsets` | 内容内边距 | 四边各 24 | 内容与面板内容区域之间的留白，不包含抓手。 |
+| `titleToContentSpacing` | 标题到内容间距 | 14 | 标题到正文或输入框的距离。 |
+| `contentToButtonsSpacing` | 内容到按钮间距 | 14 | 正文或输入框到按钮区域；无正文操作列表中为标题到首个按钮的距离。 |
+| `buttonSpacing` | 按钮间距 | 12 | 横排、竖排按钮及操作列表动作之间的距离。 |
+| `buttonContentInsets` | 按钮内边距 | 上下 12，leading/trailing 各 16 | 按钮文字和图标周围的留白。 |
+| `adjustsFontForContentSizeCategory` | 动态字号 | `true` | 随系统文字大小缩放基础字体；设为 `false` 使用固定字号。 |
+| `buttonLayout` | Alert 按钮排列 | `.automatic` | 支持自动、等宽横排、等宽竖排；操作列表始终竖排。 |
+
+### 材质外观 `configuration.appearance`
+
+下表默认值来自 `PopoverAppearance()`；`.classic` 将材质设为纯色、圆角设为 16 点，`.bottomSheet` 会显示抓手。
+
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `material` | 面板材质 | `.automatic` | 支持自动、纯色、系统模糊和原生液态玻璃。 |
+| `backgroundColor` | 面板背景色 | `.secondarySystemBackground` | 用于纯色材质及降低透明度时的回退。 |
+| `tintColor` | 玻璃染色 | `nil` | 原生液态玻璃的染色；模糊回退效果可能不同。 |
+| `cornerRadius` | 面板圆角 | 24 点 | 面板内容与材质轮廓的圆角半径。 |
+| `borderColor` | 边框颜色 | `.separator` | 面板前景边框的颜色。 |
+| `borderWidth` | 边框宽度 | 0 点 | 设置大于 0 时显示配置边框；增强对比度时系统可提高宽度。 |
+| `shadowColor` | 阴影颜色 | `.black` | 自定义面板阴影的颜色。 |
+| `shadowOpacity` | 阴影不透明度 | 0.16 | 自定义阴影的浓度。 |
+| `shadowRadius` | 阴影模糊半径 | 24 点 | 自定义阴影的模糊范围。 |
+| `shadowOffset` | 阴影偏移 | `(width: 0, height: 8)` | 自定义阴影的水平与垂直偏移。 |
+| `addsShadowToLiquidGlass` | 玻璃额外阴影 | `false` | 是否在原生玻璃系统阴影外叠加上述自定义阴影。 |
+| `backdropColor` | 遮罩颜色 | `.black` | 面板外部背景遮罩的颜色。 |
+| `backdropOpacity` | 遮罩不透明度 | 0.32 | 遮罩的视觉浓度，不控制点击是否穿透。 |
+| `showsGrabber` | 显示抓手 | `false` | 是否在面板内容上方显示拖拽指示条。 |
 
 ## 任意内容与预设布局
 

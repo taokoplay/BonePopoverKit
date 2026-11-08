@@ -1,10 +1,10 @@
 # BonePopoverKit 使用说明
 
-本文面向需要在 iOS 项目中接入、定制或扩展弹窗的开发者，对应当前工作区的 SDK 实现。首次接入可以先看第 1～3 节；迁移旧组件时同时阅读 [迁移说明](Migration.md)。
+本文介绍 BonePopoverKit 的安装、内置弹窗、自定义内容与参数配置。首次接入可以先看第 1～3 节，完整配置字段见第 13 节。
 
-BonePopoverKit 是基于 UIKit 的 Swift Package，最低部署版本为 iOS 15。核心类 `BonePopoverView` 继承自 `UIViewController`，业务内容放在 `baseView` 中。样式、布局、动画和关闭交互分别配置，项目可以继续通过子类扩展。
+BonePopoverKit 是基于 UIKit 的独立弹窗组件，通过 Swift Package 集成，最低部署版本为 iOS 15，无第三方依赖。提供可继承的 `BonePopoverView` 与内容容器 `baseView`，支持页面内展示、独立 Window 和导航。
 
-当前交付为本地包，没有指定远程发布地址和版本 tag。旧项目未自动迁移，旧 `CLPopoverManager` 的队列等能力也不是本包的完整兼容接口。
+参数表统一采用“字段、名称、默认值、说明”，每个字段单独一行。样式、材质外观、布局、动画、窗口与交互分别配置，默认值和生效范围在对应表格中说明。
 
 ## 目录
 
@@ -38,9 +38,9 @@ BonePopoverKit 是基于 UIKit 的 Swift Package，最低部署版本为 iOS 15�
 | 原生液态玻璃 | 使用包含对应 API 的新 SDK 和编译器构建，运行于 iOS 26+ |
 | Duo 折叠 / 摄像头保留区域 | 使用 Xcode 27.1 / Swift 6.4 构建，运行于 iOS 27.1+ |
 
-Xcode 中选择 **File → Add Package Dependencies → Add Local**，选中 `BonePopoverKit` 目录，再给 App target 添加同名 library product。
+Xcode 中选择 **File → Add Package Dependencies**，输入 `https://github.com/taokoplay/BonePopoverKit.git`，选择 `main` 分支，再给 App target 添加 `BonePopoverKit` library product。
 
-其他 Swift Package 可以在依赖中使用 `.package(path: "../BonePopoverKit")`，并为需要调用 SDK 的 target 添加 `BonePopoverKit` product。路径按项目实际目录调整。
+其他 Swift Package 可使用 `.package(url: "https://github.com/taokoplay/BonePopoverKit.git", branch: "main")`，并为调用组件的 target 添加同名 product。本地开发可用 Add Local 选择组件目录，或使用 `.package(path: "../BonePopoverKit")`。
 
 业务文件导入：
 
@@ -87,11 +87,11 @@ func showSaveConfirmation(from presenter: UIViewController) {
 | `show(over: sourceWindow, animated: true)` | 独立 Window，绑定明确的源窗口及所属 Scene |
 | `show(in: scene, animated: true)` | 独立 Window，从明确的 Scene 选择有效业务宿主 |
 | `show()` | 独立 Window，仅当恰好一个前台活动 Scene 时自动选择上下文 |
-| `show(isNav: true)` | 兼容旧版独立窗口导航入口，自动选择唯一前台 Scene |
+| `show(isNav: true)` | 自动选择唯一前台 Scene，创建带 UIKit 导航容器的独立 Window |
 
 展示方法返回 `Bool`。同一实例已经展示、已有父控制器、正在被其他方式呈现、宿主未上屏或场景不明确时，不应继续假定展示成功。
 
-**覆盖范围取决于入口。** `show(from:)` 添加到传入控制器的 view，覆盖导航栏/标签栏时传入对应容器控制器；Window 模式创建独立透明窗口。`show()` / `show(in:)` 从本包早期的页面内展示调整为独立 Window。层级、输入接管、导航、恢复与多 Scene 规则见 [独立 Window 模式](WindowPresentation.md)。窗口创建选项统一在 `configuration.window` 设置，本次展示保存快照；内容样式和交互配置仍可实时修改。
+**覆盖范围取决于入口。** `show(from:)` 添加到传入控制器的 view，覆盖导航栏/标签栏时传入对应容器控制器；其余入口创建独立透明窗口。层级、输入接管、导航、恢复与多 Scene 规则见 [独立 Window 模式](WindowPresentation.md)。窗口创建选项统一在 `configuration.window` 设置，本次展示保存快照；内容样式和交互配置可在显示期间修改。
 
 关闭使用 `hidden(_:)` 或 `dismissPopover(...)`，不要用系统的 `dismiss(animated:)` 代替：
 
@@ -183,9 +183,19 @@ sheet.titleAlignment = .center
 sheet.show(from: presenter)
 ```
 
+`PopoverAction` 的字段如下，默认值来自其初始化参数：
+
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `title` | 动作标题 | 初始化时必传 | 按钮显示的文字。 |
+| `image` | 动作图标 | `nil` | 按钮的可选 UIImage 图标。 |
+| `role` | 视觉角色 | `.normal` | normal 使用普通颜色，destructive 使用红色强调。 |
+| `dismissesPopover` | 执行前关闭 | `true` | true 时先关闭再执行 handler；false 时立即执行并保留弹窗。 |
+| `handler` | 动作闭包 | 空闭包 `{}` | 点击时执行的业务逻辑，实际时机由 dismissesPopover 决定。 |
+
 `PopoverAction` 默认先关闭，再执行 handler；`dismissesPopover: false` 则立即执行 handler 并保留弹窗。`.destructive` 只表示操作的视觉角色，不会自动增加二次确认或执行删除逻辑。
 
-动作集合在初始化时提供。需要分组、多选、拖拽排序或 loading 流程时，使用自定义内容或业务子类；本版操作列表没有直接提供旧抽屉的全部接口。
+动作集合在初始化时提供。需要分组、多选、拖拽排序或 loading 流程时，使用自定义内容或业务子类。
 
 <a id="titles"></a>
 
@@ -219,20 +229,25 @@ alert.configuration.contentStyle.messageFont = UIFont.systemFont(ofSize: 18)
 alert.configuration.contentStyle.contentToButtonsSpacing = 24
 ```
 
-| 样式属性 | 默认值 | 含义 |
-| --- | --- | --- |
-| `titleFont` | `.boldSystemFont(ofSize: 18)` | 标题基础字体，接受任意 `UIFont` |
-| `messageFont` | `.systemFont(ofSize: 17)` | 正文基础字体，接受任意 `UIFont` |
-| `buttonFont` / `inputFont` | `.systemFont(ofSize: 17)` | 按钮 / 输入文本基础字体 |
-| `titleColor` / `messageColor` | `.label` / `.secondaryLabel` | 标题 / 正文颜色 |
-| `titleAlignment` / `messageAlignment` | `.left` / `.natural` | 标题 / 正文分别对齐 |
-| `contentInsets` | 四边各 24 点 | 内容到面板内容边缘的内部留白 |
-| `titleToContentSpacing` | 14 点 | 标题到正文或输入框 |
-| `contentToButtonsSpacing` | 14 点 | 正文或输入框到按钮；无正文的操作列表为标题到首个按钮 |
-| `buttonSpacing` | 12 点 | 横排 / 竖排按钮之间，以及操作列表动作之间 |
-| `buttonContentInsets` | 上下 12、左右 16 点 | 按钮内部文字和图标周围的留白 |
-| `buttonLayout` | `.automatic` | 仅控制 Alert；操作列表始终竖排 |
-| `adjustsFontForContentSizeCategory` | `true` | 使用 `UIFontMetrics` 随系统字号缩放 |
+下表字段通过 `configuration.contentStyle` 访问，默认值来自 `PopoverContentStyle()`。字体为基础 `UIFont`，尺寸和间距单位为点。
+
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `titleFont` | 标题字体 | `.boldSystemFont(ofSize: 18)` | 确认框、输入框和操作列表的标题基础字体。 |
+| `messageFont` | 正文字体 | `.systemFont(ofSize: 17)` | 正文和说明文字的基础字体。 |
+| `buttonFont` | 按钮字体 | `.systemFont(ofSize: 17)` | 确认、取消及操作列表按钮的基础字体。 |
+| `inputFont` | 输入字体 | `.systemFont(ofSize: 17)` | 单字段输入框的基础字体。 |
+| `titleColor` | 标题颜色 | `.label` | 标题文字颜色，支持系统深浅色。 |
+| `messageColor` | 正文颜色 | `.secondaryLabel` | 正文文字颜色，支持系统深浅色。 |
+| `titleAlignment` | 标题对齐 | `.left` | 独立控制标题对齐，支持左、中、右等 `NSTextAlignment` 取值。 |
+| `messageAlignment` | 正文对齐 | `.natural` | 按正文书写方向对齐，也可明确指定。 |
+| `contentInsets` | 内容内边距 | 四边各 24 | 内容与面板内容区域之间的留白，不包含抓手。 |
+| `titleToContentSpacing` | 标题到内容间距 | 14 | 标题到正文或输入框的距离。 |
+| `contentToButtonsSpacing` | 内容到按钮间距 | 14 | 正文或输入框到按钮区域；无正文操作列表中为标题到首个按钮的距离。 |
+| `buttonSpacing` | 按钮间距 | 12 | 横排、竖排按钮及操作列表动作之间的距离。 |
+| `buttonContentInsets` | 按钮内边距 | 上下 12，leading/trailing 各 16 | 按钮文字和图标周围的留白。 |
+| `adjustsFontForContentSizeCategory` | 动态字号 | `true` | 随系统文字大小缩放基础字体；设为 `false` 使用固定字号。 |
+| `buttonLayout` | Alert 按钮排列 | `.automatic` | 支持自动、等宽横排、等宽竖排；操作列表始终竖排。 |
 
 传入基础字体即可，无需预先调用 `scaledFont`。默认系统字号下标题为 18 点粗体；开启 Dynamic Type 后会随系统文字大小变化。要求固定字号时将 `adjustsFontForContentSizeCategory` 设为 `false`。Alert 的自动按钮排列会综合实际字体、内部留白和按钮间距判断宽度；辅助功能字号下自动使用竖排，关闭字体缩放也保留这一排列策略。按钮最小高度 44 点，输入框最小高度 48 点；大字体或更大的按钮内边距可继续撑高。
 
@@ -270,7 +285,28 @@ popover.show(from: presenter)
 
 `backgroundColor` 用于纯色表面和降低透明度时的回退；它不会给原生玻璃加一层实色填充。玻璃染色使用 `tintColor`，在模糊回退路径上不保证相同染色效果。
 
-### 5.2 玻璃边缘和阴影
+### 5.2 外观字段
+
+字段通过 `configuration.appearance` 访问，下表默认值来自 `PopoverAppearance()`。`.classic` 将材质设为纯色、圆角设为 16 点，`.bottomSheet` 会显示抓手。
+
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `material` | 面板材质 | `.automatic` | 支持自动、纯色、系统模糊和原生液态玻璃。 |
+| `backgroundColor` | 面板背景色 | `.secondarySystemBackground` | 用于纯色材质及降低透明度时的回退。 |
+| `tintColor` | 玻璃染色 | `nil` | 原生液态玻璃的染色；模糊回退效果可能不同。 |
+| `cornerRadius` | 面板圆角 | 24 点 | 面板内容与材质轮廓的圆角半径。 |
+| `borderColor` | 边框颜色 | `.separator` | 面板前景边框的颜色。 |
+| `borderWidth` | 边框宽度 | 0 点 | 设置大于 0 时显示配置边框；增强对比度时系统可提高宽度。 |
+| `shadowColor` | 阴影颜色 | `.black` | 自定义面板阴影的颜色。 |
+| `shadowOpacity` | 阴影不透明度 | 0.16 | 自定义阴影的浓度。 |
+| `shadowRadius` | 阴影模糊半径 | 24 点 | 自定义阴影的模糊范围。 |
+| `shadowOffset` | 阴影偏移 | `(width: 0, height: 8)` | 自定义阴影的水平与垂直偏移。 |
+| `addsShadowToLiquidGlass` | 玻璃额外阴影 | `false` | 是否在原生玻璃系统阴影外叠加上述自定义阴影。 |
+| `backdropColor` | 遮罩颜色 | `.black` | 面板外部背景遮罩的颜色。 |
+| `backdropOpacity` | 遮罩不透明度 | 0.32 | 遮罩的视觉浓度，不控制点击是否穿透。 |
+| `showsGrabber` | 显示抓手 | `false` | 是否在面板内容上方显示拖拽指示条。 |
+
+### 5.3 玻璃边缘和阴影
 
 原生玻璃直接通过效果视图自身的 `cornerConfiguration` 定义圆角。文字和按钮位于独立前景层，避免材质合成影响清晰度。
 
@@ -278,7 +314,7 @@ popover.show(from: presenter)
 
 保持业务内容和 `baseView` 背景透明，避免不透明业务底色盖住玻璃；对玻璃祖先再添加遮罩或裁切，也可能切掉边缘光影。
 
-### 5.3 完全替换背景
+### 5.4 完全替换背景
 
 ```swift
 let popover = BonePopoverView(configuration: .centerDialog)
@@ -313,7 +349,22 @@ popover.show(from: presenter)
 
 `BoneAlertView` 的确认框与输入框在居中预设基础上，额外采用左右各 **32 点外部间距**，以及 **420 × 600 点最大尺寸**。通用 `.centerDialog` 和操作列表的原始默认值不受影响。
 
-### 6.2 调整宽高
+### 6.2 布局字段与宽高设置
+
+字段通过 `configuration.layout` 访问，默认值来自 `PopoverLayout()`；预设覆盖值见第 6.1 节。所有几何均使用展示宿主的局部坐标，尺寸单位为点。
+
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `placement` | 面板位置 | `.bottom` | 支持底部、居中、顶部、leading 侧、trailing 侧；两侧位置跟随 RTL。 |
+| `width` | 宽度规则 | `.fill` | 使用内容、固定值、可用宽度比例或填满规则。 |
+| `height` | 高度规则 | `.content` | 使用内容、固定值、可用高度比例或填满规则。 |
+| `maximumWidth` | 最大宽度 | 560 | 限制面板宽度；实际可用空间更小时继续缩小。 |
+| `maximumHeight` | 最大高度 | `.greatestFiniteMagnitude` | 默认不额外设置有限上限，仍受当前可用空间约束。 |
+| `margins` | 面板外边距 | 四边各 12 | 安全区和排除区域之外，面板与可用区域边缘的最小留白。 |
+| `regionPreference` | 可用区域偏好 | `.automatic` | 支持自动、最大区域、leading、trailing、顶部或底部偏好。 |
+| `anchorPoint` | 关联位置 | `nil` | 提供宿主坐标中的触发点，优先选择与该点相关的可用区域。 |
+| `avoidsKeyboard` | 避让键盘 | `true` | 从布局空间中排除有效的键盘区域。 |
+| `avoidsReservedRegions` | 避让系统保留区域 | `true` | 避让折叠分隔、摄像头遮挡等活动区域；支持自定义区域注入。 |
 
 ```swift
 let popover = BonePopoverView(configuration: .bottomSheet)
@@ -325,12 +376,12 @@ popover.configuration.layout.margins = UIEdgeInsets(top: 12, left: 16, bottom: 1
 popover.show(from: presenter)
 ```
 
-| 尺寸类型 | 含义 |
-| --- | --- |
-| `.content` | 使用测量结果，适合 Auto Layout 内容或自定义测量 |
-| `.fixed(points)` | 请求固定点数，仍受实际可用区域和最大尺寸约束 |
-| `.fraction(value)` | 使用选定可用区域尺寸的比例，比例限制在 0～1 |
-| `.fill` | 填满选定可用区域，仍受最大尺寸约束 |
+| `PopoverDimension` 取值 | 名称 | 说明 |
+| --- | --- | --- |
+| `.content` | 按内容测量 | 使用 Auto Layout 内容或自定义测量结果。 |
+| `.fixed(points)` | 固定尺寸 | 请求固定点数，仍受可用区域和最大尺寸约束。 |
+| `.fraction(value)` | 按比例 | 使用选定可用区域的宽或高比例，比例限制在 0～1。 |
+| `.fill` | 填满区域 | 填满选定可用区域，仍受最大尺寸约束。 |
 
 `.content` 默认主要用于测量内容高度。若需要特定内容宽度，可提供合适的 `preferredContentSize`，或覆盖 `preferredPopoverSize(fitting:)`；默认测量实现会优先使用传入的可用宽度。
 
@@ -345,10 +396,10 @@ alert.maximumSize = CGSize(width: 480, height: 560)
 alert.show(from: presenter)
 ```
 
-| Alert 属性 | 默认值 | 作用 |
-| --- | --- | --- |
-| `horizontalMargin` | 32 点 | 同时设置左右最小外部间距，对应 `configuration.layout.margins.left/right` |
-| `maximumSize` | 420 × 600 点 | 整个面板的最大宽高，对应 `configuration.layout.maximumWidth/maximumHeight` |
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `horizontalMargin` | 左右外边距 | 32 点 | 同时写入 `layout.margins.left` 与 `right`，读取时返回左侧值。 |
+| `maximumSize` | 最大面板尺寸 | 420 × 600 点 | 同时设置 `layout.maximumWidth` 与 `maximumHeight`，实际尺寸仍受可用空间限制。 |
 
 这两个属性可在显示前或显示期间修改。外部间距从安全区及折叠区域之外的可用矩形边缘计算，与标题、正文和按钮的 24 点内部边距不同。需要左右不同的间距时，直接修改 `layout.margins`；此时 `horizontalMargin` 读取左侧值。
 
@@ -360,15 +411,16 @@ alert.show(from: presenter)
 
 ## 7. 背景、外部点击和触摸穿透
 
-这是三组独立配置：
+字段通过 `configuration` 访问；遮罩颜色和不透明度位于其 `appearance` 中。下表为基础配置默认值，输入框预设禁止外部点击关闭。
 
-| 配置 | 默认值 | 控制内容 |
-| --- | --- | --- |
-| `showsBackdrop` | `true` | 是否显示外部背景遮罩 |
-| `appearance.backdropColor` / `backdropOpacity` | 黑色 / 0.32 | 遮罩颜色和视觉透明度，预设可覆盖 |
-| `dismissOnBackdropTap` | `true` | 不穿透时，点击弹窗外部是否请求关闭；输入框预设为 `false` |
-| `allowsEventPenetration` | `false` | 外部触摸是否传给底层页面 |
-| `autoHideWhenPenetrated` | `false` | 穿透时，真实外部点击结束后是否同时请求关闭 |
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `showsBackdrop` | 显示遮罩 | `true` | 只控制视觉遮罩，不控制触摸是否传给底层。 |
+| `appearance.backdropColor` | 遮罩颜色 | `.black` | 外部背景遮罩的颜色。 |
+| `appearance.backdropOpacity` | 遮罩不透明度 | 0.32 | 遮罩的视觉浓度；顶部通知预设为 0.12。 |
+| `dismissOnBackdropTap` | 外部点击关闭 | `true` | 不穿透时，点击面板外部是否请求关闭；输入框预设为 `false`。 |
+| `allowsEventPenetration` | 外部触摸穿透 | `false` | 是否让面板外部触摸进入底层页面或窗口。 |
+| `autoHideWhenPenetrated` | 穿透后关闭 | `false` | 穿透模式下，真实点击结束后是否同时请求关闭。 |
 
 ### 7.1 常用组合
 
@@ -414,6 +466,14 @@ popover.show(from: presenter)
 
 ## 8. 多方向滑动关闭
 
+字段位于 `configuration`，默认值来自 `PopoverConfiguration()`；居中预设将拖拽总开关设为 `false`。
+
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `allowsDragToDismiss` | 启用拖拽关闭 | `true` | 拖拽总开关；关闭时不响应任何关闭方向。 |
+| `allowedSwipeDirections` | 允许关闭方向 | `.automatic` | 设置物理方向组合，或根据面板位置自动选择。 |
+| `swipeThreshold` | 关闭阈值 | 100 点 | 沿关闭方向的投影距离达到阈值时关闭；快滑包含速度贡献。 |
+
 ### 8.1 开启居中弹窗四向拖拽
 
 ```swift
@@ -455,13 +515,40 @@ popover.show(from: presenter)
 
 ## 9. 动画
 
-| 动画 | 默认参数 | 适用场景 |
-| --- | --- | --- |
-| `.slide(edge)` | 0.32 秒、阻尼比 1 | 底部、顶部、侧边面板 |
-| `.fade` | 0.2 秒 | 淡入淡出 |
-| `.scale` | 0.25 秒，隐藏比例 0.92 | 居中确认框 |
-| `.spring` | 0.4 秒、阻尼比 0.82 | 需要轻微弹性的展示 |
-| `.none` | 0 秒 | 立即展示与关闭 |
+### 9.1 动画预设
+
+| 取值 | 名称 | 默认参数 | 说明 |
+| --- | --- | --- | --- |
+| `.slide(edge)` | 边缘滑入 | 0.32 秒、阻尼比 1 | 支持顶部、底部、leading 与 trailing 边缘。 |
+| `.fade` | 淡入淡出 | 0.2 秒、阻尼比 1 | 隐藏端点不透明度为 0。 |
+| `.scale` | 缩放 | 0.25 秒、阻尼比 1 | 隐藏端点缩放至 0.92，并将不透明度设为 0。 |
+| `.spring` | 弹簧缩放 | 0.4 秒、阻尼比 0.82 | 隐藏端点缩放至 0.88，并将不透明度设为 0。 |
+| `.none` | 无动画 | 0 秒 | 立即展示或关闭。 |
+
+### 9.2 动画字段
+
+字段通过 `configuration.animation` 访问。`PopoverAnimation` 初始化时必须提供 `hiddenState`，`duration` 和 `dampingRatio` 的默认参数如下；各预设可覆盖它们。
+
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `duration` | 动画时长 | 0.32 秒 | 展示与程序关闭的过渡时长；初始化时负值按 0 处理。 |
+| `dampingRatio` | 阻尼比 | 1 | 小于 1 时有弹性；初始化时限制在 0.1～1。 |
+| `hiddenState` | 隐藏端点闭包 | 初始化时必传 | 接收面板 frame、容器 bounds 和 RTL 状态，返回 `PopoverVisualState`。 |
+
+隐藏端点闭包的三个参数如下，名称可由调用方自定义：
+
+| 参数 | 名称 | 类型 | 说明 |
+| --- | --- | --- | --- |
+| `panel` | 面板矩形 | `CGRect` | 当前布局计算出的面板 frame，使用宿主局部坐标。 |
+| `container` | 容器矩形 | `CGRect` | 当前展示宿主的 bounds。 |
+| `isRightToLeft` | 从右向左布局 | `Bool` | 根据界面布局方向解析 leading/trailing。 |
+
+`PopoverVisualState` 定义自定义动画的隐藏端点：
+
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `transform` | 几何变换 | `.identity` | 隐藏端点的平移、缩放等变换。 |
+| `opacity` | 不透明度 | 1 | 隐藏端点的不透明度；设为 0 可配合淡入淡出。 |
 
 ```swift
 let popover = BonePopoverView(configuration: .bottomSheet)
@@ -490,15 +577,18 @@ popover.show(from: presenter)
 
 ## 10. 回调、关闭拦截与状态
 
-| API | 时机或含义 |
-| --- | --- |
-| `onDidShow` | 展示完成后；被中途关闭的展示不会正常进入此回调 |
-| `notificationHidden(type:)` | 可覆盖的关闭原因钩子，实际移除后调用 |
-| `notificationDismissComplete` | 每次实际关闭完成后调用 |
-| `hidden(completion)` | 直接请求关闭，移除完成后执行 completion |
-| `dismissPopover(animated:reason:completion:)` | 可指定动画和原因的直接关闭 |
-| `presentationState` | `hidden`、`presenting`、`presented`、`dismissing` |
-| `isPresented` | 只要不在 `hidden`，就为 `true`，包括关闭动画期间 |
+下表列出 `BonePopoverView` 的回调、关闭方法与只读状态；“—”表示方法本身没有字段默认值。
+
+| 字段或方法 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `onDidShow` | 展示完成回调 | `nil` | 展示完成后调用；中途关闭不会进入此回调。 |
+| `shouldDismiss` | 关闭请求拦截 | `nil` | 接收关闭原因，返回是否允许外部点击、穿透、滑动或辅助功能关闭。 |
+| `notificationDismissComplete` | 关闭完成回调 | `nil` | 每次实际关闭完成并清理后调用一次。 |
+| `notificationHidden(type:)` | 关闭原因钩子 | 默认空实现 | 子类可覆盖，实际移除后调用，参数为关闭原因。 |
+| `hidden(completion)` | 程序关闭 | — | 直接请求关闭，资源移除后执行 completion。 |
+| `dismissPopover(animated:reason:completion:)` | 指定方式关闭 | — | 可选择是否动画、关闭原因和 completion。 |
+| `presentationState` | 展示状态 | `.hidden` | 只读；取值为 hidden、presenting、presented 或 dismissing。 |
+| `isPresented` | 是否处于展示流程 | `false` | 只读；非 hidden 时均为 true，包含关闭动画期间。 |
 
 重复关闭请求的 completion 会合并到同一次实际关闭后，各执行一次；实际关闭通知只发一次。实例关闭后可再次使用。
 
@@ -512,7 +602,7 @@ popover.show(from: presenter)
 | `.accessibility` | 辅助功能退出手势 |
 | `.hostRemoved` | 展示宿主离开窗口后自动清理 |
 
-`CLPopoverDismissType` 是兼容 typealias，指向上述枚举。旧代码若穷举关闭原因，需要补充新分支。
+`CLPopoverDismissType` 是 `PopoverDismissReason` 的类型别名；编写穷举 switch 时应处理表中的全部关闭原因。
 
 ### 10.2 拦截关闭的范围
 
@@ -614,7 +704,7 @@ final class ReaderSettingsPopover: BonePopoverView {
 
 ### 键盘与长内容
 
-`configuration.layout.avoidsKeyboard` 默认为 `true`。SDK 将键盘区域纳入可用空间计算，并尝试让弹窗内的输入焦点保持可见。`isShowKeyboard` 和 `keyboardFrameEnd` 提供只读兼容状态，后者使用屏幕坐标，业务通常无需再次按键盘高度上移内容。
+`configuration.layout.avoidsKeyboard` 默认为 `true`。组件将键盘区域纳入可用空间计算，并尝试让弹窗内的输入焦点保持可见。`isShowKeyboard` 和 `keyboardFrameEnd` 提供只读键盘状态，后者使用屏幕坐标，业务通常无需再次按键盘高度上移内容。
 
 `configuration.scrollsOverflow` 默认为 `true`。内容高于可用空间时，外层允许滚动；包含自有 `UITableView`、`UICollectionView` 或网页滚动区域时，可以关闭外层溢出滚动，并由业务确定合理高度和内部滚动规则。
 
@@ -651,40 +741,56 @@ App 也需要使用支持该设备的新 SDK 构建。当前已有 Duo 模拟器
 
 ## 13. 配置速查
 
-| 需要调整的内容 | API | 默认值或注意事项 |
-| --- | --- | --- |
-| 整体配置 | `popover.configuration` | `BonePopoverView` 默认居中；整份赋值会重置先前修改 |
-| 独立窗口 | `configuration.window` | level 默认 `.alert - 1`，自动叠加、接管并恢复 key、普通容器；创建时快照，见 [窗口配置](WindowPresentation.md#窗口配置) |
-| 内置内容样式 | `configuration.contentStyle` | 确认 / 输入 / 操作列表共用，详见第 4 节 |
-| 标题 / 正文字体 | `contentStyle.titleFont` / `messageFont` | 18 点粗体 / 17 点常规 |
-| 标题 / 正文对齐 | `contentStyle.titleAlignment` / `messageAlignment` | `.left` / `.natural` |
-| 内容内边距 | `contentStyle.contentInsets` | 四边各 24 点 |
-| 标题 / 内容 / 按钮间距 | `titleToContentSpacing` / `contentToButtonsSpacing` / `buttonSpacing` | 14 / 14 / 12 点，均在 `contentStyle` 中 |
-| 动态字号 | `contentStyle.adjustsFontForContentSizeCategory` | `true`；固定字号设为 `false` |
-| 材质 | `appearance.material` | `.automatic` |
-| 圆角 | `appearance.cornerRadius` | 24；经典预设为 16 |
-| 抓手 | `appearance.showsGrabber` | `false`；底部预设为 `true` |
-| 边框 | `appearance.borderColor` / `borderWidth` | `.separator` / 0 |
-| 自定义阴影 | `shadowColor` / `shadowOpacity` / `shadowRadius` / `shadowOffset` | 黑色 / 0.16 / 24 / `(0, 8)` |
-| 玻璃额外阴影 | `appearance.addsShadowToLiquidGlass` | `false` |
-| 自定义背景 | `popover.customBackgroundView` | `nil`；设置后替换材质 |
-| 位置 | `layout.placement` | `.bottom`；居中预设为 `.center` |
-| 宽高 | `layout.width` / `height` | `.fill` / `.content` |
-| 最大宽高 | `layout.maximumWidth` / `maximumHeight` | 560 / 不额外设有限上限，仍受可用空间约束 |
-| 外部间距 | `layout.margins` | 通用配置四边各 12 点；`BoneAlertView` 左右为 32 点 |
-| Alert 左右外部间距 | `alert.horizontalMargin` | 32 点，可运行时设置 |
-| Alert 最大尺寸 | `alert.maximumSize` | 420 × 600 点，可在 iPad / Duo 等场景设置，实际尺寸仍受可用空间限制 |
-| Alert 按钮排列 | `alert.buttonLayout` | `.automatic`，默认左右等宽，必要时自动竖排；可指定 `.horizontal` / `.vertical` |
-| 区域选择 | `layout.regionPreference` / `anchorPoint` | `.automatic` / `nil` |
-| 键盘 / 保留区域避让 | `layout.avoidsKeyboard` / `avoidsReservedRegions` | 均为 `true` |
-| 长内容滚动 | `scrollsOverflow` | `true` |
-| 背景 / 外部点击 / 穿透 | 第 7 节配置表 | 可独立设置 |
-| 滑动方向 / 距离 | `allowedSwipeDirections` / `swipeThreshold` | `.automatic` / 100 点 |
-| 辅助功能适配 | `respectsReduceMotion` / `respectsReduceTransparency` | 均为 `true` |
-| 旧弹出类型 | `popover.popupType` | `.alert` / `.sheet` / `.fadeIn`；映射位置或动画，不替代完整配置 |
-| 实例标识 | `popover.key` | 每个实例的稳定 UUID 字符串 |
+### 13.1 配置字段总表
 
-此表中的布局原始默认值来自 `PopoverConfiguration()`；使用预设时以第 6 节和源代码的预设覆盖值为准。
+字段位于 `popover.configuration`。下表默认值来自直接创建的 `PopoverConfiguration()`；`BonePopoverView` 无配置初始化使用 `.centerDialog`，传入自定义内容且省略配置时使用 `.bottomSheet`。整份赋值 `configuration` 会替换全部字段，预设覆盖值见 [布局预设](#layout)。
+
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `appearance` | 材质外观 | `PopoverAppearance()` | 材质、背景、圆角、边框、阴影和抓手，见 [外观字段](#appearance)。 |
+| `contentStyle` | 内容样式 | `PopoverContentStyle()` | 字体、颜色、对齐和内部间距，见 [内容样式字段](#titles)。 |
+| `window` | 独立窗口配置 | `PopoverWindowConfiguration()` | 层级、叠加、key 与容器；创建时保存快照，见 [窗口字段](WindowPresentation.md#窗口配置)。 |
+| `layout` | 面板布局 | `PopoverLayout()` | 位置、尺寸、外部边距及区域避让，见 [布局字段](#layout)。 |
+| `animation` | 展示与关闭动画 | `.slide(.bottom)` | 时长、阻尼与隐藏端点，见 [动画字段](#animation)。 |
+| `showsBackdrop` | 显示遮罩 | `true` | 控制外部背景遮罩的视觉显示。 |
+| `dismissOnBackdropTap` | 外部点击关闭 | `true` | 不穿透时点击外部请求关闭；输入框预设为 false。 |
+| `allowsEventPenetration` | 外部触摸穿透 | `false` | 将面板外部触摸交给底层页面或窗口。 |
+| `autoHideWhenPenetrated` | 穿透后关闭 | `false` | 穿透模式下在真实外部点击结束后请求关闭。 |
+| `allowsDragToDismiss` | 启用拖拽关闭 | `true` | 拖拽总开关；居中预设默认 false。 |
+| `allowedSwipeDirections` | 允许关闭方向 | `.automatic` | 支持物理方向组合或按面板位置自动选择。 |
+| `swipeThreshold` | 关闭阈值 | 100 点 | 用沿关闭方向的投影距离判断，见 [滑动说明](#swipe)。 |
+| `respectsReduceMotion` | 跟随减弱动态效果 | `true` | 系统开启减弱动态效果时使用短时淡入淡出。 |
+| `respectsReduceTransparency` | 跟随降低透明度 | `true` | 系统开启降低透明度时将内置材质回退为纯色。 |
+| `scrollsOverflow` | 超高内容滚动 | `true` | 内容超过可用高度时提供滚动；自管滚动内容可关闭。 |
+
+### 13.2 常用组件属性
+
+以下属性直接位于 `BonePopoverView`，不在 `configuration` 中。回调与展示状态见 [回调字段](#lifecycle)。
+
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `configuration` | 整体配置 | `.centerDialog` | 无配置初始化时的预设；显式传入配置时使用调用方的值。 |
+| `baseView` | 内容容器 | 透明 `UIView` | 自定义控件的容器，其 bounds 为内容区域。 |
+| `customBackgroundView` | 自定义材质背景 | `nil` | 设置后替换内置材质；设回 nil 恢复 appearance。 |
+| `reservedRegionProvider` | 自定义保留区域 | `nil` | 返回展示宿主局部坐标中的排除矩形；nil 时使用系统查询。 |
+| `preferredContentSize` | 明确内容尺寸 | `.zero` | 高度大于 0 时优先用于内容测量，结果仍受布局空间限制。 |
+| `popupType` | 位置与动画快捷设置 | `.alert` | 设为 alert、sheet、fadeIn 时映射对应位置或动画，不替代完整配置。 |
+| `key` | 实例标识 | 实例 UUID 字符串 | 只读；同一实例重显时保持稳定，每次展示另有内部会话身份。 |
+| `isShowKeyboard` | 键盘可见状态 | `false` | 只读；当前弹窗关联的键盘是否可见。 |
+| `keyboardFrameEnd` | 键盘结束矩形 | `.zero` | 只读；键盘通知中的屏幕坐标矩形。 |
+
+### 13.3 Alert 便利属性
+
+以下属性直接位于 `BoneAlertView`，可在展示前或显示期间修改；整份替换 configuration 会覆盖映射到配置中的值。
+
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `titleAlignment` | 标题对齐 | `.left` | 直接读写 `contentStyle.titleAlignment`；操作列表也提供同名属性。 |
+| `buttonLayout` | 按钮排列 | `.automatic` | 直接读写 `contentStyle.buttonLayout`。 |
+| `horizontalMargin` | 左右外边距 | 32 点 | 同时设置左右外边距；读取时返回左侧值。 |
+| `maximumSize` | 最大面板尺寸 | 420 × 600 点 | 同时设置面板最大宽高。 |
+| `keyboardType` | 输入键盘类型 | `.default` | 映射输入预设的 UITextField 键盘类型。 |
+| `text` | 输入内容 | 空字符串 | 读取或设置输入框文字，可预填初始值。 |
 
 <a id="faq"></a>
 
@@ -725,11 +831,9 @@ xcodegen generate --spec Examples/BonePopoverDemo/project.yml
 | 字体、颜色或对齐改了又恢复 | 用 `configuration.contentStyle` 设置；直接改 label 会被后续样式刷新覆盖，整份替换 `configuration` 也会重置样式 |
 | `swift test` 提示找不到 UIKit | macOS 目标无法运行 UIKit 测试，使用 iOS destination 的 `xcodebuild test` |
 
-### 14.3 旧组件如何接入
+### 14.3 接入已有项目
 
-先看 [迁移说明](Migration.md)，再逐屏迁移。保留的常用名称包括 `BonePopoverView`、`baseView`、`popupType`、`show()`、`hidden()` 和关闭通知，但旧 `.config` 要映射为 `.configuration`。
-
-尤其注意：旧项目的 `BoneAlertView` 与 ParsingBook 的同名类含义不同；旧管理器排队、插队、替换、唯一模式、优先级，以及旧抽屉的多选和排序接口，不会因添加本包就自动迁移。窗口级别已映射为 `configuration.window.level`，导航入口与 Scene 规则见 [独立 Window 模式](WindowPresentation.md)。
+从其他弹窗实现切换时，按页面选择内置预设、自定义内容或子类，并确认展示范围、尺寸测量与回调时机。具体映射见 [迁移说明](Migration.md)。独立窗口的层级、导航与 Scene 行为见 [窗口说明](WindowPresentation.md)。
 
 ### 14.4 已验证到什么程度
 

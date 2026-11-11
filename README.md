@@ -1,6 +1,6 @@
 # BonePopoverKit
 
-BonePopoverKit 是面向 iOS 15+ 的 UIKit 弹窗组件，通过 Swift Package 集成，无第三方依赖。提供确认框、输入框、操作列表和自定义内容，支持页面内展示、独立 Window、导航、液态玻璃、动画与触摸穿透。
+BonePopoverKit 是面向 iOS 15+ 的 UIKit 弹窗组件，通过 Swift Package 集成，无第三方依赖。提供确认框、输入框、操作列表、Toast 和自定义内容，支持页面内展示、独立 Window、导航、液态玻璃、动画与触摸穿透。
 
 内容样式、材质外观、布局、动画和关闭交互分别配置，可在显示期间调整。通过可继承的 `BonePopoverView` 和内容容器 `baseView` 构建业务弹窗，组件负责展示、布局和关闭生命周期。
 
@@ -69,6 +69,23 @@ let sheet = BoneActionSheetView(title: "项目操作", actions: [
 ])
 sheet.show(from: self)
 ```
+
+## Toast 提示
+
+`BoneToastView` 支持顶部长条、底部长条和中间方块，以及成功、失败、提示、加载中四种类型。四种类型均默认停留 **2 秒**后自动关闭，无遮罩，允许继续操作底层页面。按需选择一种用法：
+
+```swift
+BoneToastView(message: "保存成功", type: .success, style: .top).show(from: self)
+BoneToastView(message: "操作失败", type: .failure, style: .bottom, duration: 3).show(from: self)
+BoneToastView(message: "有新消息", type: .info, style: .center).show(from: self)
+BoneToastView(message: "正在加载", type: .loading, style: .center).show(from: self)
+```
+
+成功显示绿色勾选，失败显示红色叉号，提示显示蓝色信息图标，加载中显示系统进度圈。省略 `type` 时默认 `.info`。通过 `duration` 设置任意停留秒数，设为 `0` 可持续显示，之后调用 `hidden()` 关闭；显示期间修改 `duration` 或 `type` 会重新计时。
+
+长条最大宽度 560 点、高度随内容调整；居中方块从 160 点起随内容增大，默认最大 280 × 280 点，空间不足时继续缩小，超长内容在内部滚动。图标或进度圈在长条 leading 侧、方块文字上方，`image` 可覆盖非加载类型的图标。
+
+显示期间修改 `message` / `image` 会重新测量。样式通过 `configuration.contentStyle` 和 `configuration.appearance` 调整；同样支持 `show(over:)` 等独立 Window 入口，默认保留当前 key Window。完整参数和持续加载示例见 [Toast 使用说明](Docs/UsageGuide.md#toast)。
 
 ## 配置参数
 
@@ -266,7 +283,7 @@ popover.hidden { /* 已移除后执行；重复关闭请求的 completion 各执
 
 ## 示例与测试
 
-直接打开 `Examples/BonePopoverDemo/BonePopoverDemo.xcodeproj`，选择 iPhone / iPad / Duo 模拟器运行。示例支持 5 种外观、5 种动画选择，以及 15 个场景，含运行时切换风格、注入横/竖折叠区域、自定义 Alert 尺寸、长内容上限、竖排按钮、窄空间回退、自定义字体与间距、即时调整内容样式和多窗口展示。导航栏“标题对齐”菜单可选择左对齐、居中、右对齐，再打开任意内置弹窗预览。
+直接打开 `Examples/BonePopoverDemo/BonePopoverDemo.xcodeproj`，选择 iPhone / iPad / Duo 模拟器运行。示例支持 5 种外观、5 种动画选择，以及 18 个场景，含运行时切换风格、注入横/竖折叠区域、自定义 Alert 尺寸、长内容上限、竖排按钮、窄空间回退、自定义字体与间距、即时调整内容样式、多窗口展示和三种 Toast。导航栏“标题对齐”菜单可选择左对齐、居中、右对齐，再打开确认框或操作列表预览。
 
 导航栏“关闭交互”打开交互体验页，提供背景/外部点击/穿透开关、自动/四向/单向滑动选择、50/100/200 点阈值，以及底层点击计数。菜单“交互方案”可快速验证透明外部关闭、穿透并关闭、仅左滑等组合。
 

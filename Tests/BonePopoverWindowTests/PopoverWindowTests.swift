@@ -28,6 +28,34 @@ final class PopoverWindowTests: XCTestCase {
     }
 
     @MainActor
+    func testToastPreservesInputAndReleasesItsWindowAfterTimeout() async throws {
+        let (scene, source) = try source()
+        defer { source.isHidden = true }
+        let field = UITextField(frame: CGRect(x: 20, y: 100, width: 240, height: 44))
+        source.rootViewController?.view.addSubview(field)
+        field.text = "正在编辑"
+        XCTAssertTrue(field.becomeFirstResponder())
+        let toast = BoneToastView(message: "已保存", style: .top, duration: 0.1)
+        toast.configuration.animation = .none
+        let dismissed = expectation(description: "toast window released after timeout")
+        toast.notificationDismissComplete = { dismissed.fulfill() }
+        XCTAssertTrue(toast.show(over: source, animated: false))
+        let session = try XCTUnwrap(toast.windowSession)
+        XCTAssertTrue(source.isKeyWindow)
+        XCTAssertTrue(field.isFirstResponder)
+        XCTAssertFalse(session.window.canBecomeKey)
+        XCTAssertTrue(toast.configuration.allowsEventPenetration)
+        await fulfillment(of: [dismissed], timeout: 3)
+        XCTAssertEqual(toast.presentationState, .hidden)
+        XCTAssertTrue(source.isKeyWindow)
+        XCTAssertTrue(field.isFirstResponder)
+        XCTAssertEqual(field.text, "正在编辑")
+        XCTAssertTrue(session.window.isHidden)
+        XCTAssertNil(session.window.rootViewController)
+        XCTAssertTrue(PopoverWindowCoordinator.shared.sessions(in: scene).isEmpty)
+    }
+
+    @MainActor
     func testDefaultsAndExplicitWindowPresentationSnapshot() throws {
         let (scene, source) = try source()
         defer { source.isHidden = true }

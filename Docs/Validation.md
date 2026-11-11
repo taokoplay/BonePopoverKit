@@ -198,3 +198,26 @@ Duo 的 `supportsMultipleScenes` 为 true，实际第二 Scene 激活成功，�
 最终真实 UI 日志没有 Auto Layout 冲突或不平衡生命周期警告。托管测试在同一调用栈快速显示/隐藏 UIWindow 时仍记录 `Unbalanced calls to begin/end appearance transitions`；原生 UIWindow 对照也能复现，保留 `window-raw-lifetime.log`。不能据此声称所有运行路径完全没有生命周期警告。部分日志另有 Xcode 设备 build 版本解析、AppIntents 元数据及 RTI 输入会话的非致命信息。
 
 iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全部窄分屏组合及完整人工辅助功能巡检未完成。历史 iOS 27.1 页面模式连续输入后点击问题保留，本轮没有用独立 Window 用例代替该场景。排队、优先级、替换和唯一调度仍属于 App 业务能力，不在本轮实现中。入口、创建快照及所有权说明见 [独立 Window 模式](WindowPresentation.md)。
+
+## Toast 顶部长条、底部长条与中间方块
+
+新增 `BoneToastView`，默认 2 秒后自动关闭，支持 `.top` / `.bottom` / `.center`、可选图标及显示期间更新文字、图标、时长和统一样式。顶部/底部最大宽度 560 点，居中方块从 160 点起随内容增大，默认最大 280 × 280 点；小区域继续缩小，超长内容由内部滚动承载。默认无遮罩、允许外部触摸穿透；独立 Window 保留当前 key 与输入焦点。计时使用 MainActor Task，关闭时取消，并用每次展示的标识隔离旧计时。非模态展示使用 announcement，避免 screenChanged 抢走辅助功能焦点。
+
+- Swift 6 严格模式 / iOS 15 simulator 目标类型检查通过；单独生成 module 后，Toast 使用手册示例作为外部调用方编译通过。
+- iOS 27.1 完整核心回归 **66/66 通过**，包括新增 7 项：三种位置和实际图文布局、无背景与触摸穿透、动态文字/图标/样式、小区域与长内容滚动、展示完成后计时、取消/重显/重设计时、禁用及极大时长、宿主移除与释放。
+- iOS 27.1 独立 Window 新增用例 **1/1 通过**：输入状态下展示 Toast，验证 key 与 first responder 保留、超时自动移除、窗口清空及会话释放。
+- iPhone 13 Pro / iOS 26 UI **2/2 通过**，覆盖三种形态、顶部仍显示时真实点击底层切换到底部、自动关闭与中心方块比例；三张最终截图已核对，UI 日志无约束冲突。
+- 首轮手机 UI 的 2 项均在读取短时 Toast 的 ready 标记时失败；自动化等待和跨进程查询可能耗尽 Demo 的 3 秒停留时间。测试通过环境变量 `BONE_TOAST_DEMO_DURATION=10` 延长可观察窗口后复测通过，不改变组件默认 2 秒或普通 Demo 的 3 秒行为。实际计时与取消语义仍由核心测试和 Window 托管测试独立覆盖。
+- Demo 增加第 16～18 个场景，保留已有场景编号；XcodeGen 工程已同步。尚未进行真机安装或完整人工 VoiceOver 验收；iOS 15 仅完成编译验证。
+- 本会话 scratch 证据：`toast-core.log` / `ToastCore.xcresult`、`toast-window.log` / `ToastWindow.xcresult`、`toast-phone-verified.log` / `ToastPhoneVerified.xcresult`；首轮失败保留于 `ToastPhoneUI.xcresult`，最终手机截图在 `toast-phone-screens`。
+- 平板深色 / XL 字号补充验收未完成，未计为通过：旧 `BonePopoverKit iPad Sizing QA` 的 data 目录缺失，创建临时 iPad 后测试宿主持续未启动，截图命令也在 60 秒后超时；最终 runner 安装/启动报 Mach -308，未进入用例。临时模拟器已关闭并删除。`toast-pad-dark.log` / `ToastPadDark.xcresult` 保留失败证据，本轮没有用核心几何测试替代这项真实平板 UI 验收。
+
+## Toast 成功、失败、提示与加载中类型
+
+新增 `BoneToastView.ToastType`：`.success`、`.failure`、`.info`、`.loading`，可与三种布局组合使用，默认类型为 `.info`。成功/失败/提示使用绿色勾选、红色叉号、蓝色信息图标，加载中使用原生进度圈。`duration` 对四种类型统一默认 2 秒，可传入任意正秒数，0 持续显示；显示期间修改时长或类型会重新计时。加载动画随展示、关闭、类型切换及复用自动开始/停止，自定义图标在非加载类型继续生效。
+
+- Swift 6 严格模式 / iOS 15 simulator 目标类型检查通过；两组更新后的 Toast 文档示例和一组旧参数标签调用作为外部 client 编译通过；文档本地链接及 `git diff --check` 通过。
+- Duo / iOS 27.1 完整核心测试 **70/70 通过**，其中 Toast **11/11**。新增 4 项覆盖四类型 × 三布局的指示器、加载动画开始/停止/复用、自定义图标与类型切换、四种类型实际按默认 2 秒关闭、类型切换后的计时重启及自定义时长。
+- iPhone 13 Pro / iOS 26 原布局 UI **2/2 通过**；新增菜单 UI 单独执行 **1/1 通过**。实际操作持续显示 → 失败 → 提示 → 加载中 → 成功 → 1 秒自动关闭，验证辅助功能状态值、Toast 持续存在和最后自动移除，并保存四种类型截图。Demo “Toast”菜单提供类型以及 1 / 2 / 3 / 5 秒或持续显示，默认时长同步为 2 秒。
+- 首轮 UI 未枚举新增方法，按完整方法名执行时仍为 0 tests，未将此记录算作新增用例通过。确认方法已编译、带 Objective-C thunk，且已安装测试二进制与构建产物相同；终止并卸载专用 QA 模拟器中的测试运行器，再由 Xcode 安装后，新方法实际执行且通过。测试方法未改写或合并。
+- 证据：`toast-types-core.log` / `ToastTypesCore.xcresult`、`toast-types-phone-ui.log` / `ToastTypesPhoneUI.xcresult`、`toast-types-menu-fresh.log` / `ToastTypesMenuFresh.xcresult`，四类型截图位于 `toast-types-menu-screens`。本轮未扩展平板、真机或完整人工辅助功能验收。

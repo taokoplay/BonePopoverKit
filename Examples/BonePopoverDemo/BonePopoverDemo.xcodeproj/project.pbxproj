@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		20EA8CC072FBD44180CF8C60 /* PopoverInteractionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04C1A58B91682D860F624BC /* PopoverInteractionUITests.swift */; };
 		30C3D0EEBA1AF1ABF8E99CCC /* PopoverWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9087E03AB694D07392FF33D /* PopoverWindowTests.swift */; };
+		4434DFEEEAB75CA941FA237E /* PopoverToastUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6530B7AAEDC44B4E77C5C297 /* PopoverToastUITests.swift */; };
 		531B61846DC1F1E090A6AF1A /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54CD57DF7223DFA78C57FCC /* App.swift */; };
 		5D4E42D836A630503EE20552 /* InteractionDemoViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB55D680EB3C439ECE973E60 /* InteractionDemoViewController.swift */; };
 		70F38BA90CA8598498756527 /* PopoverWindowReentrancyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BF1D10F8C15BDFA832896BA /* PopoverWindowReentrancyTests.swift */; };
@@ -44,6 +45,7 @@
 		136B363F08F02997CBD69C3B /* PopoverContentStyleUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverContentStyleUITests.swift; sourceTree = "<group>"; };
 		2C94629C3244CC2A45D40609 /* BonePopoverDemoUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BonePopoverDemoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5F362B670A2E6C16E81A8572 /* BonePopoverKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = BonePopoverKit; path = ../..; sourceTree = SOURCE_ROOT; };
+		6530B7AAEDC44B4E77C5C297 /* PopoverToastUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverToastUITests.swift; sourceTree = "<group>"; };
 		6BF1D10F8C15BDFA832896BA /* PopoverWindowReentrancyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverWindowReentrancyTests.swift; sourceTree = "<group>"; };
 		77D3321982526459581970EC /* PopoverAlertButtonsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverAlertButtonsUITests.swift; sourceTree = "<group>"; };
 		7A4D11BADE5D6534FDB3DA5E /* PopoverWindowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverWindowUITests.swift; sourceTree = "<group>"; };
@@ -134,6 +136,7 @@
 				136B363F08F02997CBD69C3B /* PopoverContentStyleUITests.swift */,
 				BE8D4651D097BCA8C1BF2A83 /* PopoverDemoUITests.swift */,
 				D04C1A58B91682D860F624BC /* PopoverInteractionUITests.swift */,
+				6530B7AAEDC44B4E77C5C297 /* PopoverToastUITests.swift */,
 				7A4D11BADE5D6534FDB3DA5E /* PopoverWindowUITests.swift */,
 			);
 			path = UITests;
@@ -266,6 +269,7 @@
 				BF11FA5F59889F38ABFD3B0A /* PopoverContentStyleUITests.swift in Sources */,
 				F6AD28AB188A389F4CDF80EF /* PopoverDemoUITests.swift in Sources */,
 				20EA8CC072FBD44180CF8C60 /* PopoverInteractionUITests.swift in Sources */,
+				4434DFEEEAB75CA941FA237E /* PopoverToastUITests.swift in Sources */,
 				BA4505D39BEF2F1EC229A7C4 /* PopoverWindowUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

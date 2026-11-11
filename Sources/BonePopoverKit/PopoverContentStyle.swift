@@ -8,7 +8,7 @@ public enum PopoverAlertButtonLayout: Sendable {
     case automatic, horizontal, vertical
 }
 
-/// 内置确认框、输入框和操作列表共用的字体与内部间距配置。
+/// 内置确认框、输入框、操作列表和 Toast 共用的字体与内部间距配置。
 /// 通过 `configuration.contentStyle` 设置；显示期间修改会刷新控件并重新测量弹窗尺寸。
 /// 字体应传入未经缩放的基础 UIFont，启用动态字号时由 SDK 使用 UIFontMetrics 缩放。
 /// 样式是值类型：赋给多个弹窗后，各弹窗保存自己的副本，可以分别调整。
@@ -46,7 +46,7 @@ public struct PopoverContentStyle {
     /// 此处不包含底部抓手区域；面板外部留白由 configuration.layout.margins 控制。
     public var contentInsets = NSDirectionalEdgeInsets(top: 24, leading: 24, bottom: 24, trailing: 24)
 
-    /// 标题到正文或输入框的间距，默认 14 点。
+    /// 标题到正文或输入框的间距，默认 14 点；Toast 用作图文间距（预设 12 点）。
     public var titleToContentSpacing: CGFloat = 14
 
     /// 正文或输入框到按钮区域的间距，默认 14 点。

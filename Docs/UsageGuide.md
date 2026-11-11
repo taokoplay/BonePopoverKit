@@ -10,7 +10,8 @@ BonePopoverKit 是基于 UIKit 的独立弹窗组件，通过 Swift Package 集�
 
 - [1. 环境与安装](#installation)
 - [2. 快速开始与展示宿主](#quick-start)
-- [3. 内置确认框、输入框和操作列表](#presets)
+- [3. 内置确认框、输入框、操作列表与 Toast](#presets)
+  - [3.4 Toast 提示](#toast)
 - [4. 字体、对齐与内容间距](#titles)
 - [5. 外观与液态玻璃](#appearance)
 - [6. 弹窗位置与尺寸](#layout)
@@ -107,7 +108,7 @@ popover.hidden {
 
 <a id="presets"></a>
 
-## 3. 内置确认框、输入框和操作列表
+## 3. 内置确认框、输入框、操作列表与 Toast
 
 ### 3.1 确认框
 
@@ -196,6 +197,70 @@ sheet.show(from: presenter)
 `PopoverAction` 默认先关闭，再执行 handler；`dismissesPopover: false` 则立即执行 handler 并保留弹窗。`.destructive` 只表示操作的视觉角色，不会自动增加二次确认或执行删除逻辑。
 
 动作集合在初始化时提供。需要分组、多选、拖拽排序或 loading 流程时，使用自定义内容或业务子类。
+
+<a id="toast"></a>
+
+### 3.4 Toast 提示
+
+`BoneToastView` 支持顶部长条、底部长条和居中方块，以及成功、失败、提示、加载中四种类型。类型与布局独立组合；**四种类型均默认显示 2 秒，包括加载中**。默认无遮罩、允许外部触摸穿透，不会因点击底层页面自动消失。独立 Window 模式默认使用 `.preserveCurrent` 保留当前 key Window。
+
+```swift
+BoneToastView(message: "保存成功", type: .success, style: .top).show(from: presenter)
+BoneToastView(message: "操作失败", type: .failure, style: .bottom, duration: 3).show(from: presenter)
+BoneToastView(message: "有新消息", type: .info, style: .center).show(from: presenter)
+
+let toast = BoneToastView(message: "正在加载", type: .loading, style: .center)
+toast.configuration.appearance = .liquidGlass
+toast.show(from: presenter)
+```
+
+每个实例独立显示和计时，不提供全局排队或自动替换。以上调用分别演示各自用法，业务中按需选择。`type: BoneToastView.ToastType` 支持：
+
+| 类型 | 名称 | 默认指示器 | 默认自动关闭 |
+| --- | --- | --- | --- |
+| `.success` | 成功 | 绿色 `checkmark.circle.fill` | 2 秒 |
+| `.failure` | 失败 | 红色 `xmark.circle.fill` | 2 秒 |
+| `.info` | 提示 | 蓝色 `info.circle.fill` | 2 秒 |
+| `.loading` | 加载中 | 原生 UIActivityIndicatorView | 2 秒 |
+
+显示期间修改 `type` 会立即切换指示器，并按当前 `duration` 重新计时。进度圈在展示时开始动画，关闭、宿主移除或切换到非加载类型时停止；再次显示加载类型会恢复动画。
+
+| `style` | 形态与尺寸 | 指示器位置 | 默认动画与拖拽 |
+| --- | --- | --- | --- |
+| `.top` | 顶部长条，填满可用宽度，最大 560 点，高度随内容 | 文字 leading 侧 | 从顶部滑入，可向上滑动关闭 |
+| `.bottom` | 底部长条，填满可用宽度，最大 560 点，高度随内容 | 文字 leading 侧 | 从底部滑入，可向下滑动关闭 |
+| `.center` | 居中方块，从 160 点起随内容增大，最大 280 × 280 点 | 文字上方 | 缩放淡入，默认禁止拖拽 |
+
+三种布局都避让安全区、键盘及保留区域；小空间下继续缩小，超长内容在内部滚动，居中款仍保持方块轮廓。字体支持 Dynamic Type。默认毛玻璃材质，可像其他弹窗一样配置经典、液态玻璃或品牌色外观。
+
+| 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `type` | 提示类型 | `.info` | `.success` / `.failure` / `.info` / `.loading`，可在显示期间切换并重新计时。 |
+| `style` | 布局样式 | `.bottom` | 初始化时确定，只读；`.top` / `.bottom` / `.center`。 |
+| `message` | 提示文字 | 初始化时必传 | 显示期间修改自动重新测量。 |
+| `image` | 自定义图标 | `nil` | 覆盖非加载类型的图标；nil 恢复类型默认图标。加载中仍显示进度圈，切回其他类型后恢复自定义图标。 |
+| `duration` | 停留秒数 | `2` | 展示完成后计时，修改时重新计时；非正值或非有限值禁用自动关闭。对四种类型均生效。 |
+| `messageLabel` | 文字控件 | UILabel | 字体、颜色、对齐由 contentStyle 刷新；更新文案请使用 message。辅助功能 value 表示当前类型。 |
+| `imageView` | 图标控件 | UIImageView | 类型图标使用对应语义色，自定义图标使用正文颜色；加载中隐藏。 |
+| `loadingIndicator` | 加载指示器 | UIActivityIndicatorView | 使用正文颜色；长条为 medium、方块为 large，组件自动管理动画。 |
+
+Toast 使用 `configuration.contentStyle` 中的 `messageFont`（默认 16 点 medium）、`messageColor`（默认 `.label`）、`messageAlignment`（长条 `.natural`，方块 `.center`）、`contentInsets`（长条上下 16、leading/trailing 20；方块四边 24）、`titleToContentSpacing`（用作图文间距，默认 12）和 `adjustsFontForContentSizeCategory`。其他标题、按钮和输入字段不参与 Toast 布局。
+
+需要持续加载时，显式传入 `duration: 0`；操作完成后更新文字、类型和停留时长：
+
+```swift
+let loading = BoneToastView(message: "正在加载", type: .loading, style: .center, duration: 0)
+loading.show(from: presenter)
+
+// 在主线程的操作完成回调中更新：
+loading.message = "加载完成"
+loading.type = .success
+loading.duration = 2
+```
+
+也可以调用 `hidden()` / `dismissPopover()` 手动关闭。自动关闭与程序关闭均不经过 `shouldDismiss`。手动关闭、宿主移除和再次展示会取消旧计时，不占用调用方的 `onDidShow` / `notificationDismissComplete` 回调。子类覆盖生命周期和 `notificationHidden(type:)` 时需调用 super，以保留计时与进度圈管理。
+
+沿用全部展示入口：`show(from:)`、`show(over:)`、`show(in:)`、`show()`；返回 Bool，展示失败不启动计时。无遮罩和穿透是 Toast 初始化时的默认配置，整份替换 `configuration` 会覆盖这些设置。默认穿透时使用 VoiceOver announcement 播报类型与提示文字，不切走当前辅助功能焦点。
 
 <a id="titles"></a>
 
@@ -808,6 +873,7 @@ App 也需要使用支持该设备的新 SDK 构建。当前已有 Duo 模拟器
 - “交互方案”：快速选择透明外部关闭、穿透不关闭、穿透并关闭、四向滑动、仅左滑和高阈值。
 - “底层点击次数”：确认同一次穿透点击确实传给了底层页面。
 - “多窗口展示”：切换双业务 Window，验证自动/固定层级、乱序关闭、输入与 key 恢复、穿透计数、导航及第二 Scene；测试启动参数为 `--window-demo`。
+- “Toast 顶部长条 / 底部长条 / 中间方块”：默认显示成功类型，2 秒后自动关闭；导航栏“Toast”菜单可选择成功、失败、提示、加载中，以及 1 / 2 / 3 / 5 秒或持续显示。显示期间切换类型/时长立即生效，也可以点击底层列表切换布局场景。
 - 注入折叠场景：验证几何避让，不等同于硬件姿态检测。
 
 项目使用 XcodeGen 配置，可在包根目录重新生成工程：

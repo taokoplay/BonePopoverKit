@@ -260,7 +260,9 @@ open class BonePopoverView: UIViewController {
             self.finishAppearance()
             guard self.hostView === host, self.presentationIdentifier == token,
                   self.presentationState == .presented else { return }
-            UIAccessibility.post(notification: .screenChanged, argument: self.baseView)
+            if !self.configuration.allowsEventPenetration {
+                UIAccessibility.post(notification: .screenChanged, argument: self.baseView)
+            }
             self.onDidShow?()
         }
         return true
@@ -330,7 +332,7 @@ open class BonePopoverView: UIViewController {
         keyboardFrameEnd = .zero
         let completions = dismissCompletions
         dismissCompletions.removeAll()
-        if canRestoreFocus {
+        if canRestoreFocus, !configuration.allowsEventPenetration {
             let target = focus as? UIView
             UIAccessibility.post(notification: .screenChanged, argument: target?.window?.isKeyWindow == true ? focus : nil)
         }

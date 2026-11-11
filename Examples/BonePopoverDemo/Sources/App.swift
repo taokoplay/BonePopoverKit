@@ -53,12 +53,14 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 }
 
 final class DemoViewController: UITableViewController {
-    private let scenes = ["居中确认框", "输入框与键盘", "底部操作列表", "顶部通知", "侧边面板", "长内容滚动", "注入竖向折叠", "注入横向折叠", "自定义 Alert 尺寸", "Alert 长内容上限", "Alert 竖排按钮", "Alert 窄空间", "自定义字体与间距", "即时调整内容样式", "独立 Window 与多 Scene"]
+    private let scenes = ["居中确认框", "输入框与键盘", "底部操作列表", "顶部通知", "侧边面板", "长内容滚动", "注入竖向折叠", "注入横向折叠", "自定义 Alert 尺寸", "Alert 长内容上限", "Alert 竖排按钮", "Alert 窄空间", "自定义字体与间距", "即时调整内容样式", "独立 Window 与多 Scene", "Toast 顶部长条", "Toast 底部长条", "Toast 中间方块"]
     private let styles = ["自动", "经典", "毛玻璃", "液态玻璃", "品牌色"]
     private let motions = ["场景默认", "淡入淡出", "缩放", "弹簧", "自定义"]
     private var selectedStyle = 0
     private var selectedMotion = 0
     private var selectedTitleAlignment: NSTextAlignment = .left
+    private var selectedToastType: BoneToastView.ToastType = .success
+    private var selectedToastDuration: TimeInterval = 2
     private weak var currentPopover: BonePopoverView?
     private var lastResult = "选择一个场景，体验弹窗。"
 
@@ -68,6 +70,7 @@ final class DemoViewController: UITableViewController {
         navigationController?.navigationBar.prefersLargeTitles = true
         tableView.accessibilityIdentifier = "demo-list"
         updateTitleAlignmentMenu()
+        updateToastMenu()
     }
 
     override func numberOfSections(in tableView: UITableView) -> Int { 3 }
@@ -89,7 +92,7 @@ final class DemoViewController: UITableViewController {
         var content = cell.defaultContentConfiguration()
         content.text = [scenes, styles, motions][indexPath.section][indexPath.row]
         if indexPath.section == 0 {
-            content.image = UIImage(systemName: ["rectangle.center.inset.filled", "keyboard", "list.bullet.rectangle", "rectangle.topthird.inset.filled", "sidebar.right", "scroll", "rectangle.split.2x1", "rectangle.split.1x2", "arrow.left.and.right", "arrow.up.and.down", "rectangle.split.1x2", "arrow.left.and.right", "textformat.size", "slider.horizontal.3", "macwindow.on.rectangle"][indexPath.row])
+            content.image = UIImage(systemName: ["rectangle.center.inset.filled", "keyboard", "list.bullet.rectangle", "rectangle.topthird.inset.filled", "sidebar.right", "scroll", "rectangle.split.2x1", "rectangle.split.1x2", "arrow.left.and.right", "arrow.up.and.down", "rectangle.split.1x2", "arrow.left.and.right", "textformat.size", "slider.horizontal.3", "macwindow.on.rectangle", "rectangle.topthird.inset.filled", "rectangle.bottomthird.inset.filled", "square.inset.filled"][indexPath.row])
             cell.accessoryType = .disclosureIndicator
             cell.accessibilityIdentifier = "scene-\(indexPath.row)"
         } else {
@@ -121,6 +124,50 @@ final class DemoViewController: UITableViewController {
         navigationItem.rightBarButtonItems = [item, interactions]
     }
 
+    private func updateToastMenu() {
+        let types: [(String, BoneToastView.ToastType)] = [
+            ("成功", .success), ("失败", .failure), ("提示", .info), ("加载中", .loading)
+        ]
+        let typeActions = types.map { title, type in
+            UIAction(title: title, state: selectedToastType == type ? .on : .off) { [weak self] _ in
+                guard let self else { return }
+                self.selectedToastType = type
+                if let toast = self.currentPopover as? BoneToastView {
+                    toast.message = self.toastMessage(style: toast.style)
+                    toast.type = type
+                }
+                self.updateToastMenu()
+            }
+        }
+        let durations: [(String, TimeInterval)] = [
+            ("1 秒", 1), ("2 秒（默认）", 2), ("3 秒", 3), ("5 秒", 5), ("持续显示", 0)
+        ]
+        let durationActions = durations.map { title, duration in
+            UIAction(title: title, state: selectedToastDuration == duration ? .on : .off) { [weak self] _ in
+                guard let self else { return }
+                self.selectedToastDuration = duration
+                (self.currentPopover as? BoneToastView)?.duration = duration
+                self.updateToastMenu()
+            }
+        }
+        let menu = UIMenu(children: [
+            UIMenu(title: "类型", options: .displayInline, children: typeActions),
+            UIMenu(title: "自动消失时间", children: durationActions)
+        ])
+        let item = UIBarButtonItem(title: "Toast", menu: menu)
+        item.accessibilityIdentifier = "toast-options"
+        navigationItem.leftBarButtonItem = item
+    }
+
+    private func toastMessage(style: BoneToastView.Style) -> String {
+        switch selectedToastType {
+        case .success: style == .center ? "保存成功" : "更改已保存，可以继续操作。"
+        case .failure: style == .center ? "操作失败" : "操作失败，请稍后重试。"
+        case .info: style == .center ? "提示信息" : "有新消息，请及时查看。"
+        case .loading: style == .center ? "加载中…" : "正在加载，请稍候…"
+        }
+    }
+
     @objc private func showInteractions() {
         navigationController?.pushViewController(InteractionDemoViewController(), animated: true)
     }
@@ -142,6 +189,9 @@ final class DemoViewController: UITableViewController {
     }
 
     private func showScene(_ index: Int) {
+        if let toast = currentPopover as? BoneToastView {
+            toast.dismissPopover(animated: false)
+        }
         if index == 14 {
             navigationController?.pushViewController(WindowDemoViewController(), animated: true)
             return
@@ -188,6 +238,19 @@ final class DemoViewController: UITableViewController {
             sheet.loadViewIfNeeded()
             sheet.actionButtons.first?.accessibilityIdentifier = "toggle-content-style"
             popover = sheet
+        case 15, 16, 17:
+            let style: BoneToastView.Style = switch index {
+            case 15: .top
+            case 16: .bottom
+            default: .center
+            }
+            // UI 自动化可延长观察窗口；普通演示默认 2 秒，0 持续显示。
+            let duration = selectedToastDuration > 0
+                ? ProcessInfo.processInfo.environment["BONE_TOAST_DEMO_DURATION"]
+                    .flatMap(TimeInterval.init) ?? selectedToastDuration
+                : selectedToastDuration
+            popover = BoneToastView(message: toastMessage(style: style), type: selectedToastType,
+                                    style: style, duration: duration)
         default:
             let title = scenes[index]
             let message = [5, 8, 9].contains(index) ? String(repeating: "内容会根据当前窗口宽度换行，超出可用高度时可以滚动。\n\n", count: 10)
@@ -223,6 +286,10 @@ final class DemoViewController: UITableViewController {
             sheet.titleLabel.accessibilityIdentifier = "popover-title"
             sheet.messageLabel.accessibilityIdentifier = "popover-message"
             sheet.cancelButton.accessibilityIdentifier = "popover-cancel"
+        } else if let toast = popover as? BoneToastView {
+            toast.messageLabel.accessibilityIdentifier = "toast-message"
+            toast.imageView.accessibilityIdentifier = "toast-image"
+            toast.loadingIndicator.accessibilityIdentifier = "toast-loading"
         }
         popover.baseView.accessibilityIdentifier = "popover-content"
         switch selectedMotion {

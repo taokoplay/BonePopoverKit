@@ -88,7 +88,7 @@ public struct PopoverLayout {
 @MainActor
 public struct PopoverConfiguration {
     public var appearance = PopoverAppearance()
-    /// 内置确认框、输入框和操作列表的统一字体、颜色、对齐及内部间距。
+    /// 内置确认框、输入框、操作列表和 Toast 的统一字体、颜色、对齐及内部间距。
     /// 显示期间可修改；面板外部留白和最大尺寸由 layout 单独控制。
     public var contentStyle = PopoverContentStyle()
     /// 独立窗口的创建选项；每次展示保存快照，页面模式不使用这些选项。

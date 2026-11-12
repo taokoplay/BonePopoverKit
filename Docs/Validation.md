@@ -388,3 +388,12 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - 新增用例 `testRowIconIsOptionalAndConfigurable`：有图标行出现 `drawer-row-icon`（32×32、圆角与底板色取自 `sheetConfig`、图标约底板 58%），无图标行没有该视图，`headerInset` 默认 16。
 - Demo 场景「抽屉式选择」的 6 行都加了 SF 图标（靛蓝底板 + 靛蓝图标），恢复默认一行保持纯文字，用于对比两种布局。
 - 测试：核心 **98/98 通过**（`drawer-icons3.log`）；Demo UI 抽屉用例 **1/1 通过**（`drawer-ui1.log`），带图标后行仍可点、仍能提交并关闭。
+
+## 抽屉改用 UITableView（对齐阅读器实现）
+
+- 结构从「UIStackView 手工堆行」换成 `UITableView(style: .grouped)`：`BoneDrawerSheetView` 持有 `tableView`，实现 `UITableViewDataSource / Delegate`；新增 `BoneDrawerSheetCell`（cell 透明、`baseView` 承担底色与分组圆角、`lineView` 自绘分隔线、`iconBox` 行首图标、`accessoryImageView` 勾选/拖动图标，`isSelected` 直接控制勾选显隐）。
+- 表头仍是 `UIStackView` 的第一行（抓手由面板负责、标题居中、左侧关闭、右侧可选“确定”），列表紧跟其后。
+- 列表高度按分区自算（`行数 × cellHeight + 分区间距`），超过 `sheetConfig.maximumListHeight`（默认 500）时 `isScrollEnabled = true`，并把 `configuration.scrollsOverflow` 关掉，避免外层与列表抢手势。
+- `.drag` 分区恢复拖动排序：`UITableViewDragDelegate / DropDelegate` 只允许同一 `.drag` 分区内移动，落点即插入位置，提交时仍按当前顺序回传。
+- 分隔线：有图标的行从文字起始处缩进，无图标行 15 点；末行不画。颜色、圆角、行高、图标参数继续走 `sheetConfig`。
+- 测试改为通过 table view 驱动：`tapRow` 调用 `didSelectRowAt`，行背景/图标断言改成拿 `BoneDrawerSheetCell` 的视图；新增 `tableView.style == .grouped` 断言。核心 **98/98 通过**（`td-all.log`），Demo UI 抽屉用例 **1/1 通过**（`td-ui2.log`）。

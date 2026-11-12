@@ -241,7 +241,8 @@ drawer.selectAction { selections in
 drawer.show(from: presenter)
 ```
 
-- 分区类型：`.normal` 点击执行回调并关闭；`.singleSelect` 分区内单选；`.multipleSelect` 分区内多选；`.drag` 按添加顺序全部提交（当前版本不支持拖动排序）。
+- 列表本体是 `UITableView(style: .grouped)`（沿用阅读器实现）：cell 透明、分组底色与圆角由 cell 内部背景层承担、系统分隔线全关、行间分隔线自绘；禁用估算行高，行高取 `cellHeight`。
+- 分区类型：`.normal` 点击执行回调并关闭；`.singleSelect` 分区内单选；`.multipleSelect` 分区内多选；`.drag` 可在分区内拖动排序，并按当前顺序提交。
 - 标题相同即同一分区，第二个参数只决定新行是否默认选中；有选择型分区时才出现“确定”按钮，`selectAction` 在点“确定”后回调。
 - `sheetConfig` 可调 `openSectionTitle`、`sectionHeight`、`fontSize`、`cellHeight`、`highlightColor`、`textAlignment`，以及颜色相关：`cellBackgroundColor`（行背景，默认 `.secondarySystemGroupedBackground`，即浅色白、深色 #1C1C1E）、`cellCornerRadius`（分组首尾行圆角，默认 10 点）、`horizontalInset`（行背景距面板边缘，默认 16 点）、`cellSeparatorColor`（行间分隔线，默认系统分隔色）。
 - 面板底色由 `configuration.appearance.backgroundColor` 控制，抽屉默认用 `systemGroupedBackground`（浅灰），与行背景相互独立，两者合起来就是系统分组列表的「灰底白行」。
@@ -250,6 +251,7 @@ drawer.show(from: presenter)
   - **多选（或单选也要统一提交）**：`drawer.showsConfirmButton = true`，点右侧按钮统一提交，`selectAction` 回传全部选中项并关闭；
   - **单选/立即执行**：用 `.normal("")` 行加 `callback`，点行即回调并关闭，右侧按钮保持隐藏（原实现的单选用法）。
 - 右侧按钮可接管：`drawer.trailingButton` 改文案/图标，或 `drawer.onTrailingButtonTap` 完全接管点击（接管后按钮显示且不自动提交关闭）；`confirmTitle`、`closeAccessibilityLabel` 分别改确定文案与关闭按钮的辅助功能标签。
+- 列表高度按分区自己算（`行数 × cellHeight + 分区间距`），超过 `sheetConfig.maximumListHeight`（默认 500 点）时列表内部滚动，外层弹层不再嵌套滚动。
 - 表面沿用 `.bottomSheet`（仅圆顶部两角、无阴影、0.15 秒滑入），默认显示抓手、标题居中；抽屉把标题定为 17 点 semibold，表头左右留白 `sheetConfig.headerInset`（默认 16 点），关闭按钮与右侧按钮都按此贴边。
 - 行可以带图标：`addButton(text:value:icon:style:inSection:callback:)` 传 `icon` 才画，不传的行保持原来的纯文字布局。尺寸与外观在 `sheetConfig`：`cellIconSize`（默认 32 点）、`cellIconCornerRadius`（默认 9 点）、`cellIconBackgroundColor`（默认 `nil` 不画底板，设浅色就是系统设置的「色块 + 图标」）、`cellIconTint`（默认跟随 `highlightColor`）、`cellIconSpacing`（图标与文字间距，默认 12 点）。带图标的行分隔线自动从文字起始处缩进。
 

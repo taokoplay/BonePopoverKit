@@ -1,13 +1,13 @@
 import UIKit
 
-/// 抽屉式底部弹层：标题 + 抓手 + 分组行。
+/// 抽屉式底部弹层：标题 + 抓手 + `UITableView` 分组列表。
 ///
 /// 用法沿用阅读器旧实现：先 `init(title:)`，再用 `addButton(text:value:style:inSection:)`
 /// 逐个添加行，分区的交互方式由 `SectionType` 决定：
 /// - `.normal`：点击执行回调并关闭；
 /// - `.singleSelect`：分区内单选，点一次切换一次，由“确定”提交；
 /// - `.multipleSelect`：分区内多选，“确定”提交全部选中项；
-/// - `.drag`：行按添加顺序参与提交（当前版本不支持拖动排序）。
+/// - `.drag`：行可拖动排序，并按当前顺序参与提交。
 ///
 /// 两种取结果的方式：
 /// - 选择型分区（`.singleSelect` / `.multipleSelect` / `.drag`）：打开 `showsConfirmButton`，
@@ -41,7 +41,7 @@ open class BoneDrawerSheetView: BonePopoverView {
     public struct SheetConfig {
         /// 是否显示分区标题文字；关闭时只保留分区之间的间距。
         public var openSectionTitle = false
-        /// 分区之间的间距，默认 10 点。
+        /// 分区之间的间距，默认 10 点；打开分区标题时作为标题行高度。
         public var sectionHeight: CGFloat = 10
         /// 行文字字体，默认 16 点加粗。
         public var fontSize: UIFont = .boldSystemFont(ofSize: 16)
@@ -66,16 +66,19 @@ open class BoneDrawerSheetView: BonePopoverView {
         public var cellIconCornerRadius: CGFloat = 9
         /// 行图标底板颜色，默认 `nil` 不画底板；设成浅色即可得到系统设置那种「色块 + 图标」。
         public var cellIconBackgroundColor: UIColor?
-        /// 行图标着色，默认 `nil`：原图保留颜色，模板图跟随 `tintColor`。
+        /// 行图标着色，默认 `nil`：原色图保留颜色，模板图跟随 `highlightColor`。
         public var cellIconTint: UIColor?
         /// 图标与文字的间距，默认 12 点。
         public var cellIconSpacing: CGFloat = 12
         /// 表头左右内边距，默认 16 点；关闭按钮与右侧按钮都按此贴边，标题随之居中。
         public var headerInset: CGFloat = 16
+        /// 列表最高高度，默认 500 点；超出后列表内部滚动。
+        public var maximumListHeight: CGFloat = 500
 
         public init() {}
     }
 
+    /// 外观参数；修改后立即重排。
     public var sheetConfig = SheetConfig() {
         didSet { rebuildRows() }
     }
@@ -90,7 +93,7 @@ open class BoneDrawerSheetView: BonePopoverView {
         }
     }
 
-    /// 是否包含拖拽分区。
+    /// 是否包含可拖动排序的分区。
     public var hasDragOperation: Bool {
         sections.contains { if case .drag(_) = $0.type { return true } else { return false } }
     }
@@ -100,7 +103,7 @@ open class BoneDrawerSheetView: BonePopoverView {
         didSet { applyButtonTitles() }
     }
 
-    /// 右上角关闭按钮的辅助功能标签；nil 使用“关闭”。
+    /// 左上角关闭按钮的辅助功能标签；nil 使用“关闭”。
     public var closeAccessibilityLabel: String? {
         didSet { applyButtonTitles() }
     }
@@ -127,6 +130,7 @@ open class BoneDrawerSheetView: BonePopoverView {
         var style: ButtonStyle
         var callback: (() -> Void)?
     }
+
     private struct Section {
         var type: SectionType
         var buttons: [ButtonModel]
@@ -135,14 +139,16 @@ open class BoneDrawerSheetView: BonePopoverView {
     private var sections: [Section] = []
     private var selectIndexPath = Set<IndexPath>()
     private var selectCallback: (([(text: String, value: String)]) -> Void)?
-    private var rowControls: [[UIControl]] = []
 
     private let contentStack = makePopoverStack()
     /// 仅用于复用共享排版函数；抽屉没有正文行。
     private let typographyPlaceholder = UILabel()
     private let confirmButton = UIButton(type: .system)
     private let cancelButton = UIButton(type: .system)
-    /// 标题行两个按钮共用的尺寸约束，供 `contentStyle.closeButtonSize` 变化时同步。
+
+    /// 列表本体；沿用阅读器做法，透明背景 + 分组样式 + 无系统分隔线。
+    let tableView = UITableView(frame: .zero, style: .grouped)
+    private var tableHeightConstraint: NSLayoutConstraint?
     private var cancelSizeConstraints: [NSLayoutConstraint] = []
     private var confirmSizeConstraints: [NSLayoutConstraint] = []
 
@@ -158,6 +164,8 @@ open class BoneDrawerSheetView: BonePopoverView {
         configuration.contentStyle.titleAlignment = .center
         configuration.contentStyle.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 0,
                                                                           bottom: 20, trailing: 0)
+        // 列表自己负责滚动，外层保持一屏内不滚动，避免嵌套滚动抢手势。
+        configuration.scrollsOverflow = false
     }
 
     /// 提交回调：单选/多选返回选中项，拖拽分区按当前顺序返回全部。
@@ -205,10 +213,14 @@ open class BoneDrawerSheetView: BonePopoverView {
 
     open override func viewDidLoad() {
         super.viewDidLoad()
+        configureTableView()
         configurePopoverLabel(titleLabel)
         titleLabel.accessibilityTraits.insert(.header)
         contentStack.spacing = 0
         contentStack.addArrangedSubview(makeHeaderRow())
+        contentStack.addArrangedSubview(tableView)
+        contentStack.setCustomSpacing(0, after: tableView)
+
         confirmButton.accessibilityIdentifier = "drawer-confirm"
         confirmButton.addAction(UIAction { [weak self] _ in
             guard let self else { return }
@@ -221,6 +233,9 @@ open class BoneDrawerSheetView: BonePopoverView {
         cancelButton.accessibilityIdentifier = "drawer-close"
         cancelButton.accessibilityLabel = resolvedCloseLabel
         cancelButton.addAction(UIAction { [weak self] _ in self?.hidden() }, for: .touchUpInside)
+
+        tableHeightConstraint = tableView.heightAnchor.constraint(equalToConstant: 0)
+        tableHeightConstraint?.isActive = true
         setContentView(contentStack)
         rebuildRows()
     }
@@ -239,38 +254,61 @@ open class BoneDrawerSheetView: BonePopoverView {
         rebuildRows()
     }
 
-    // MARK: - 构建
+    // MARK: - 列表
 
-    /// 按当前 sections 重建行与按钮；调用开销小，可直接在增删与配置变化时复用。
-    private func rebuildRows() {
+    private func configureTableView() {
+        tableView.dataSource = self
+        tableView.delegate = self
+        tableView.backgroundColor = .clear
+        tableView.separatorStyle = .none
+        tableView.separatorColor = .clear
+        tableView.separatorInset = .zero
+        tableView.contentInset = .zero
+        tableView.scrollIndicatorInsets = .zero
+        tableView.estimatedRowHeight = 0
+        tableView.estimatedSectionHeaderHeight = 0
+        tableView.estimatedSectionFooterHeight = 0
+        tableView.rowHeight = sheetConfig.cellHeight
+        tableView.contentInsetAdjustmentBehavior = .never
+        tableView.showsVerticalScrollIndicator = false
+        tableView.dragInteractionEnabled = false
+        tableView.dragDelegate = self
+        tableView.dropDelegate = self
+        tableView.accessibilityIdentifier = "drawer-table"
+        tableView.register(BoneDrawerSheetCell.self, forCellReuseIdentifier: Self.cellIdentifier)
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    /// 按当前分区与行数重建列表：刷新数据、重排高度、同步滚动开关。
+    func rebuildRows() {
         guard isViewLoaded else { return }
-        // 只保留首个标题行，其余（分区标题与行）全部重建，避免重复堆积。
-        for view in contentStack.arrangedSubviews.dropFirst() {
-            contentStack.removeArrangedSubview(view)
-            view.removeFromSuperview()
-        }
-        rowControls = sections.map { _ in [] }
-
-        for (sectionIndex, section) in sections.enumerated() {
-            if sectionIndex > 0 || sheetConfig.openSectionTitle {
-                contentStack.addArrangedSubview(makeSectionHeader(section, isFirst: sectionIndex == 0))
-            }
-            for (rowIndex, model) in section.buttons.enumerated() {
-                let row = makeRow(model, indexPath: IndexPath(row: rowIndex, section: sectionIndex),
-                                  type: section.type,
-                                  isFirst: rowIndex == 0,
-                                  isLast: rowIndex == section.buttons.count - 1)
-                contentStack.addArrangedSubview(row)
-                rowControls[sectionIndex].append(row)
-            }
-        }
-
+        tableView.rowHeight = sheetConfig.cellHeight
+        tableView.dragInteractionEnabled = hasDragOperation
+        tableView.reloadData()
+        updateTableHeight()
         applyTrailingButtonVisibility()
         refreshSelection()
         invalidatePopoverLayout()
     }
 
-    /// 标题行：标题居中，左侧关闭按钮（×），右侧自定义按钮（默认“确定”）。
+    /// 列表高度按分区自己算，不依赖 `contentSize`；超过 `maximumListHeight` 时内部滚动。
+    private func updateTableHeight() {
+        let rowHeight = sheetConfig.cellHeight
+        let rows = sections.reduce(CGFloat.zero) { $0 + CGFloat($1.buttons.count) }
+        let headerUnit = sectionHeaderHeight()
+        let headerTotal = sections.isEmpty ? 0 : CGFloat(max(0, sections.count - 1)) * headerUnit
+        let content = rows * rowHeight + headerTotal
+        let limit = max(120, sheetConfig.maximumListHeight)
+        tableHeightConstraint?.constant = min(content, limit)
+        tableView.isScrollEnabled = content > limit + 0.5
+    }
+
+    /// 分区标题行高度：第一区不占位，打开标题时按 35 点给标题留位置。
+    private func sectionHeaderHeight() -> CGFloat {
+        sheetConfig.openSectionTitle ? 35 : sheetConfig.sectionHeight
+    }
+
+    /// 标题行：标题居中，左侧关闭按钮（向下箭头），右侧自定义按钮（默认“确定”）。
     private func makeHeaderRow() -> UIView {
         let header = UIView()
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -332,207 +370,10 @@ open class BoneDrawerSheetView: BonePopoverView {
         confirmButton.isHidden = !(showsConfirmButton || onTrailingButtonTap != nil)
     }
 
-    private func makeSectionHeader(_ section: Section, isFirst: Bool) -> UIView {
-        let container = UIView()
-        if sheetConfig.openSectionTitle {
-            let label = UILabel()
-            label.text = section.type.title
-            label.font = .preferredFont(forTextStyle: .footnote)
-            label.adjustsFontForContentSizeCategory = true
-            label.textColor = .secondaryLabel
-            label.translatesAutoresizingMaskIntoConstraints = false
-            container.addSubview(label)
-            NSLayoutConstraint.activate([
-                label.topAnchor.constraint(equalTo: container.topAnchor, constant: isFirst ? 10 : sheetConfig.sectionHeight),
-                label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -4),
-                label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
-                label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20)
-            ])
-        } else {
-            container.heightAnchor.constraint(equalToConstant: isFirst ? 8 : sheetConfig.sectionHeight).isActive = true
-        }
-        return container
-    }
-
-    /// 行首图标视图：只负责图标呈现，底板与约束由 `makeRow` 加。
-    private func makeRowIcon(_ icon: UIImage) -> UIImageView {
-        let view = UIImageView()
-        view.image = icon.renderingMode == .alwaysOriginal ? icon : icon.withRenderingMode(.alwaysTemplate)
-        view.tintColor = sheetConfig.cellIconTint ?? sheetConfig.highlightColor
-        view.contentMode = .scaleAspectFit
-        view.isUserInteractionEnabled = false
-        view.isAccessibilityElement = false
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }
-
-    private func makeRow(_ model: ButtonModel, indexPath: IndexPath, type: SectionType,
-                         isFirst: Bool, isLast: Bool) -> UIControl {
-        let row = UIControl()
-        row.accessibilityIdentifier = "drawer-row-\(indexPath.section)-\(indexPath.row)"
-        row.accessibilityLabel = model.text
-        row.accessibilityTraits = .button
-        row.backgroundColor = .clear
-
-        // 背景层单独承担颜色与分组圆角，行本身保持透明以便露出面板底色。
-        let background = UIView()
-        background.backgroundColor = sheetConfig.cellBackgroundColor
-        background.accessibilityIdentifier = "drawer-row-bg"
-        background.layer.cornerRadius = sheetConfig.cellCornerRadius
-        background.layer.maskedCorners = cornerMask(isFirst: isFirst, isLast: isLast)
-        background.layer.masksToBounds = true
-        background.isUserInteractionEnabled = false
-        background.translatesAutoresizingMaskIntoConstraints = false
-        row.addSubview(background)
-
-        let label = UILabel()
-        label.text = model.text
-        label.numberOfLines = 0
-        label.textAlignment = sheetConfig.textAlignment
-        label.font = sheetConfig.fontSize
-        label.adjustsFontForContentSizeCategory = true
-        label.textColor = model.style == .highlight ? sheetConfig.highlightColor : .label
-
-        let accessory = UIImageView(image: UIImage(systemName: accessorySymbol(for: type)))
-        accessory.tintColor = sheetConfig.highlightColor
-        accessory.contentMode = .scaleAspectFit
-        accessory.isHidden = true
-        accessory.tag = 99
-        accessory.setContentHuggingPriority(.required, for: .horizontal)
-        accessory.widthAnchor.constraint(equalToConstant: 20).isActive = true
-
-        let stack = UIStackView(arrangedSubviews: [label, accessory])
-        stack.axis = .horizontal
-        stack.alignment = .center
-        stack.spacing = 12
-        stack.isUserInteractionEnabled = false
-        stack.translatesAutoresizingMaskIntoConstraints = false
-
-        let separator = UIView()
-        separator.backgroundColor = sheetConfig.cellSeparatorColor
-        separator.isHidden = isLast
-        separator.translatesAutoresizingMaskIntoConstraints = false
-        background.addSubview(separator)
-
-        // 先把文字栈挂进背景层，后面两条分支都要用它的 leading 做约束。
-        background.addSubview(stack)
-
-        // 有图标时行首多一个「底板 + 图标」，分隔线从文字起始处缩进，像系统设置那样。
-        if let icon = model.icon {
-            let iconBox = UIView()
-            iconBox.backgroundColor = sheetConfig.cellIconBackgroundColor
-            iconBox.layer.cornerRadius = sheetConfig.cellIconCornerRadius
-            iconBox.layer.cornerCurve = .continuous
-            iconBox.isUserInteractionEnabled = false
-            iconBox.accessibilityIdentifier = "drawer-row-icon"
-            iconBox.translatesAutoresizingMaskIntoConstraints = false
-
-            let iconView = makeRowIcon(icon)
-            iconBox.addSubview(iconView)
-            background.addSubview(iconBox)
-
-            let glyph = max(12, sheetConfig.cellIconSize * 0.58)
-            NSLayoutConstraint.activate([
-                iconView.centerXAnchor.constraint(equalTo: iconBox.centerXAnchor),
-                iconView.centerYAnchor.constraint(equalTo: iconBox.centerYAnchor),
-                iconView.widthAnchor.constraint(equalToConstant: glyph),
-                iconView.heightAnchor.constraint(equalToConstant: glyph),
-                iconBox.leadingAnchor.constraint(equalTo: background.leadingAnchor, constant: 16),
-                iconBox.centerYAnchor.constraint(equalTo: background.centerYAnchor),
-                iconBox.widthAnchor.constraint(equalToConstant: sheetConfig.cellIconSize),
-                iconBox.heightAnchor.constraint(equalToConstant: sheetConfig.cellIconSize),
-                stack.leadingAnchor.constraint(equalTo: iconBox.trailingAnchor,
-                                               constant: sheetConfig.cellIconSpacing),
-                separator.leadingAnchor.constraint(equalTo: stack.leadingAnchor)
-            ])
-        } else {
-            stack.leadingAnchor.constraint(equalTo: background.leadingAnchor, constant: 16).isActive = true
-            separator.leadingAnchor.constraint(equalTo: background.leadingAnchor, constant: 15).isActive = true
-        }
-
-        NSLayoutConstraint.activate([
-            background.topAnchor.constraint(equalTo: row.topAnchor),
-            background.bottomAnchor.constraint(equalTo: row.bottomAnchor),
-            background.leadingAnchor.constraint(equalTo: row.leadingAnchor,
-                                                constant: sheetConfig.horizontalInset),
-            background.trailingAnchor.constraint(equalTo: row.trailingAnchor,
-                                                 constant: -sheetConfig.horizontalInset),
-            row.heightAnchor.constraint(greaterThanOrEqualToConstant: sheetConfig.cellHeight),
-            stack.topAnchor.constraint(equalTo: background.topAnchor, constant: 12),
-            stack.bottomAnchor.constraint(equalTo: background.bottomAnchor, constant: -12),
-            stack.trailingAnchor.constraint(equalTo: background.trailingAnchor, constant: -16),
-            separator.trailingAnchor.constraint(equalTo: background.trailingAnchor, constant: -15),
-            separator.bottomAnchor.constraint(equalTo: background.bottomAnchor),
-            separator.heightAnchor.constraint(equalToConstant: 0.5)
-        ])
-
-        row.addAction(UIAction { [weak self] _ in
-            self?.handleTap(indexPath: indexPath)
-        }, for: .touchUpInside)
-        return row
-    }
-
-    /// 分组首行只圆上两角、末行只圆下两角、单行四角全圆。
-    private func cornerMask(isFirst: Bool, isLast: Bool) -> CACornerMask {
-        if isFirst && isLast {
-            return [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
-        }
-        if isFirst { return [.layerMinXMinYCorner, .layerMaxXMinYCorner] }
-        if isLast { return [.layerMinXMaxYCorner, .layerMaxXMaxYCorner] }
-        return []
-    }
-
-    private func isDragSection(_ type: SectionType) -> Bool {
-        if case .drag(_) = type { return true }
-        return false
-    }
-
-    private func accessorySymbol(for type: SectionType) -> String {
-        switch type {
-        case .drag(_): return "line.3.horizontal"
-        case .singleSelect(_, _), .multipleSelect(_, _): return "checkmark"
-        case .normal(_): return "checkmark"
-        }
-    }
-
-    private func handleTap(indexPath: IndexPath) {
-        guard indexPath.section < sections.count,
-              indexPath.row < sections[indexPath.section].buttons.count else { return }
-        let model = sections[indexPath.section].buttons[indexPath.row]
-        switch sections[indexPath.section].type {
-        case .normal(_):
-            model.callback?()
-            hidden()
-        case .singleSelect(_, _):
-            selectIndexPath = selectIndexPath.filter { $0.section != indexPath.section }
-            selectIndexPath.insert(indexPath)
-            refreshSelection()
-        case .multipleSelect(_, _):
-            if selectIndexPath.contains(indexPath) {
-                selectIndexPath.remove(indexPath)
-            } else {
-                selectIndexPath.insert(indexPath)
-            }
-            refreshSelection()
-        case .drag(_):
-            break
-        }
-    }
-
-    private func refreshSelection() {
-        for (sectionIndex, section) in sections.enumerated() where sectionIndex < rowControls.count {
-            for (rowIndex, row) in rowControls[sectionIndex].enumerated() {
-                let indexPath = IndexPath(row: rowIndex, section: sectionIndex)
-                let showsCheck: Bool
-                switch section.type {
-                case .normal(_): showsCheck = false
-                case .drag(_): showsCheck = true
-                case .singleSelect(_, _), .multipleSelect(_, _): showsCheck = selectIndexPath.contains(indexPath)
-                }
-                row.viewWithTag(99)?.isHidden = !showsCheck
-                row.accessibilityValue = showsCheck ? "已选中" : nil
-            }
-        }
+    /// 勾选状态跟着 `selectIndexPath` 走；`.drag` 分区按顺序全部勾上。
+    func refreshSelection() {
+        guard isViewLoaded else { return }
+        tableView.reloadData()
     }
 
     /// 确认：拖拽分区按当前顺序全部回传，其余分区只回传选中项。
@@ -570,5 +411,197 @@ open class BoneDrawerSheetView: BonePopoverView {
         applyPopoverCircleButtonStyle(cancelButton, style: configuration.contentStyle)
         cancelButton.accessibilityLabel = resolvedCloseLabel
         invalidatePopoverLayout()
+    }
+
+    private static let cellIdentifier = "drawer.row"
+
+    private func isDragSection(_ type: SectionType) -> Bool {
+        if case .drag(_) = type { return true }
+        return false
+    }
+
+    private func accessorySymbol(for type: SectionType) -> String {
+        switch type {
+        case .drag(_): return "line.3.horizontal"
+        case .singleSelect(_, _), .multipleSelect(_, _): return "checkmark"
+        case .normal(_): return "checkmark"
+        }
+    }
+
+    /// 行在分组中的位置决定圆角方向。
+    private func roundStyle(for indexPath: IndexPath) -> BoneDrawerSheetCell.RoundStyle {
+        let count = sections[indexPath.section].buttons.count
+        let isFirst = indexPath.row == 0
+        let isLast = indexPath.row == count - 1
+        if isFirst && isLast { return .all }
+        if isFirst { return .top }
+        if isLast { return .bottom }
+        return .none
+    }
+
+    private func cellConfiguration(at indexPath: IndexPath) -> BoneDrawerSheetCell.Configuration {
+        let section = sections[indexPath.section]
+        let model = section.buttons[indexPath.row]
+        let type = section.type
+        return BoneDrawerSheetCell.Configuration(
+            text: model.text,
+            textColor: model.style == .highlight ? sheetConfig.highlightColor : .label,
+            font: sheetConfig.fontSize,
+            textAlignment: sheetConfig.textAlignment,
+            cellBackgroundColor: sheetConfig.cellBackgroundColor,
+            separatorColor: sheetConfig.cellSeparatorColor,
+            cornerRadius: sheetConfig.cellCornerRadius,
+            showsSeparator: indexPath.row != section.buttons.count - 1,
+            horizontalInset: sheetConfig.horizontalInset,
+            icon: model.icon,
+            iconBoxColor: sheetConfig.cellIconBackgroundColor,
+            iconTint: model.icon == nil ? sheetConfig.highlightColor
+                : (sheetConfig.cellIconTint ?? sheetConfig.highlightColor),
+            iconSize: sheetConfig.cellIconSize,
+            iconCornerRadius: sheetConfig.cellIconCornerRadius,
+            iconSpacing: sheetConfig.cellIconSpacing,
+            accessoryImage: UIImage(systemName: accessorySymbol(for: type)),
+            accessoryTint: sheetConfig.highlightColor
+        )
+    }
+
+    private func isSelectedRow(at indexPath: IndexPath) -> Bool {
+        switch sections[indexPath.section].type {
+        case .drag(_): return true
+        case .normal(_): return false
+        case .singleSelect(_, _), .multipleSelect(_, _):
+            return selectIndexPath.contains(indexPath)
+        }
+    }
+
+    private func handleTap(indexPath: IndexPath) {
+        guard indexPath.section < sections.count,
+              indexPath.row < sections[indexPath.section].buttons.count else { return }
+        let section = sections[indexPath.section]
+        let model = section.buttons[indexPath.row]
+        switch section.type {
+        case .normal(_):
+            hidden { model.callback?() }
+        case .singleSelect(_, _):
+            selectIndexPath = selectIndexPath.filter { $0.section != indexPath.section }
+            selectIndexPath.insert(indexPath)
+            refreshSelection()
+        case .multipleSelect(_, _):
+            if selectIndexPath.contains(indexPath) {
+                selectIndexPath.remove(indexPath)
+            } else {
+                selectIndexPath.insert(indexPath)
+            }
+            refreshSelection()
+        case .drag(_):
+            break
+        }
+    }
+}
+
+// MARK: - UITableViewDataSource / Delegate
+
+extension BoneDrawerSheetView: UITableViewDataSource, UITableViewDelegate {
+    public func numberOfSections(in tableView: UITableView) -> Int { sections.count }
+
+    public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        sections[section].buttons.count
+    }
+
+    public func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        section == 0 ? 0.01 : sectionHeaderHeight()
+    }
+
+    public func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
+        0.01
+    }
+
+    public func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        guard sheetConfig.openSectionTitle, section > 0 else { return nil }
+        let container = UIView()
+        container.backgroundColor = .clear
+        let label = UILabel()
+        label.text = sections[section].type.title
+        label.font = .preferredFont(forTextStyle: .footnote)
+        label.adjustsFontForContentSizeCategory = true
+        label.textColor = .secondaryLabel
+        label.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 14),
+            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -4),
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor,
+                                           constant: sheetConfig.horizontalInset + 16),
+            label.trailingAnchor.constraint(equalTo: container.trailingAnchor,
+                                            constant: -(sheetConfig.horizontalInset + 16))
+        ])
+        return container
+    }
+
+    public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: Self.cellIdentifier, for: indexPath)
+        guard let row = cell as? BoneDrawerSheetCell else { return cell }
+        row.sheetInsets = (horizontalInset: sheetConfig.horizontalInset,
+                           iconSize: sheetConfig.cellIconSize,
+                           iconSpacing: sheetConfig.cellIconSpacing)
+        row.apply(cellConfiguration(at: indexPath))
+        row.roundStyle = roundStyle(for: indexPath)
+        row.rowIdentifier = "drawer-row-\(indexPath.section)-\(indexPath.row)"
+        row.accessibilityLabel = sections[indexPath.section].buttons[indexPath.row].text
+        row.accessibilityTraits = .button
+        row.isSelected = isSelectedRow(at: indexPath)
+        return row
+    }
+
+    public func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        defer { tableView.deselectRow(at: indexPath, animated: false) }
+        handleTap(indexPath: indexPath)
+    }
+}
+
+// MARK: - 拖动排序
+
+extension BoneDrawerSheetView: UITableViewDragDelegate, UITableViewDropDelegate {
+    public func tableView(_ tableView: UITableView, itemsForBeginning session: UIDragSession,
+                          at indexPath: IndexPath) -> [UIDragItem] {
+        guard indexPath.section < sections.count,
+              indexPath.row < sections[indexPath.section].buttons.count,
+              isDragSection(sections[indexPath.section].type) else { return [] }
+        let text = sections[indexPath.section].buttons[indexPath.row].text
+        let item = UIDragItem(itemProvider: NSItemProvider(object: text as NSString))
+        item.localObject = indexPath as NSIndexPath
+        return [item]
+    }
+
+    public func tableView(_ tableView: UITableView, canHandle session: UIDropSession) -> Bool {
+        session.localDragSession != nil
+    }
+
+    public func tableView(_ tableView: UITableView,
+                          dropSessionDidUpdate session: UIDropSession,
+                          withDestinationIndexPath destinationIndexPath: IndexPath?) -> UITableViewDropProposal {
+        guard let destination = destinationIndexPath, destination.section < sections.count,
+              isDragSection(sections[destination.section].type) else {
+            return UITableViewDropProposal(operation: .cancel)
+        }
+        return UITableViewDropProposal(operation: .move, intent: .insertAtDestinationIndexPath)
+    }
+
+    public func tableView(_ tableView: UITableView, performDropWith coordinator: UITableViewDropCoordinator) {
+        guard let destination = coordinator.destinationIndexPath,
+              destination.section < sections.count,
+              isDragSection(sections[destination.section].type) else { return }
+        for item in coordinator.items {
+            guard let source = item.sourceIndexPath, source.section == destination.section,
+                  source != destination else { continue }
+            let moved = sections[source.section].buttons.remove(at: source.row)
+            sections[destination.section].buttons
+                .insert(moved, at: min(destination.row, sections[destination.section].buttons.count))
+            tableView.performBatchUpdates {
+                tableView.moveRow(at: source, to: destination)
+            } completion: { [weak self] _ in
+                self?.refreshSelection()
+            }
+        }
     }
 }

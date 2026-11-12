@@ -152,7 +152,9 @@ final class PopoverDemoUITests: XCTestCase {
         XCTAssertTrue(row.isHittable)
         row.tap()
         XCTAssertTrue(app.otherElements["popover-ready"].waitForExistence(timeout: 5))
-        let option = app.buttons["drawer-row-0-1"]
+        // 抽屉改用 UITableView 后，行是 cell；先按 cell 找，兼容早期按 button 暴露的版本。
+        let option = app.cells["drawer-row-0-1"].exists
+            ? app.cells["drawer-row-0-1"] : app.buttons["drawer-row-0-1"]
         XCTAssertTrue(option.waitForExistence(timeout: 5))
         capture("drawer-sheet")
         option.tap()

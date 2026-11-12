@@ -259,3 +259,15 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - 该调整让 `testActionSheetUsesReaderDefaultSheetLayout` 首次以居中标题运行，暴露真实缺陷：居中标题横贯整行后覆盖关闭按钮位置，XCUITest 判定按钮不可点（`Error: -[...] : XCTAssertTrue failed - 标题左侧应有向下箭头关闭按钮`）。修复为标题先加入、关闭按钮后加入以取得更高层级，并在 `testActionSheetCloseButtonDismissesAndCanBeHidden` 中新增 subview 顺序断言（按钮必须在标题之上）。修复后核心 **74/74 通过**（`core-zorder.log`），`testActionSheetUsesReaderDefaultSheetLayout` 与 `testTitleAlignmentAndFullWidthButtons` **2/2 通过**（`demo-align2.log`）；修复前的失败记录保留在 `demo-align.log`。
 - 真机：iPhone 13 Pro「Yu iPhone 13Pro」（iOS 26.5，UDID `00008110-000620DC0AA2801E`），Team `2PX9496FD6` 自动签名（profile 为 `iOS Team Provisioning Profile: *`，含该设备），`xcodebuild build` 生成 `Debug-iphoneos/BonePopoverDemo.app` → `devicectl install` 安装成功 → `devicectl process launch` 前台启动成功（进程 pid 6140）。首次启动被系统以 `Locked` 拒绝，解锁手机后重试成功。
 - 真机验证范围：仅确认新构建可安装并启动，未做真机上的逐场景人工点检。
+
+## 阅读器旧弹层可配置项补齐（不设置即默认）
+
+对照 ParsingBook `Custom/BonePopoverView`，把“阅读器里写死、SDK 也没有入口”的值补成可选配置，逐项对照见 [阅读器对照](ReaderParity.md)。
+
+- `configuration.buttonTitles` + `BoneAlertView.confirmTitle` / `cancelTitle`：默认 `nil` → “确认”“取消”；空字符串视为未配置；显示期间修改立即生效并重新测量。实现上只在 `buttonTitles` 快照变化时改写按钮，保留宿主直接修改 `button.configuration?.title` 的旧行为。
+- `configuration.interfaceStyle`：默认 `.unspecified` 跟随宿主与系统；`.light` / `.dark` 同时作用于 `PopoverHostView` 与弹层自身，设回 `.unspecified` 恢复继承。
+- `contentStyle.closeButtonImage` / `.closeButtonSize`：默认 `nil` / 40 点；样式刷新不再用内置箭头覆盖宿主自定义图标，尺寸变化同步宽高约束。
+- `PopoverAnimation.scale(_:duration:dampingRatio:)`：比例夹在 0...1，`.scale` 仍等价 0.92 / 0.25 秒。
+- 过程记录：首版每次样式刷新回写默认标题，导致 `testAutomaticUsesColumnForNarrowSpaceAndLongButtonTitles` 与 `testLiveStyleChangeRemeasuresAndPreservesInputFocusTextAndButtonContent` 2 项回归（`core-parity.log`）；改为按配置快照比较后修复。
+- 核心回归 **79/79 通过**（`core-parity2.log`，新增 5 项见 `PopoverReaderParityTests.swift`；新增用例首轮 `parity.log` 5/5）。
+- 未采纳的部分（队列优先级、业务列表高度、图标 bundle、状态栏/方向锁）与理由见 [阅读器对照](ReaderParity.md) 第 3 节。

@@ -72,6 +72,8 @@ sheet.show(from: self)
 
 操作列表默认在标题左侧显示向下箭头关闭按钮（阅读器默认头部，40 × 40 点命中区，辅助功能标识 `popover-close`），标题居中；`showsCloseButton = false` 可隐藏，`closeButton` 可定制图标与辅助功能属性。
 
+按钮文案与主题都可覆盖且默认不变：`alert.confirmTitle` / `alert.cancelTitle`（或 `configuration.buttonTitles`）默认 `nil`，即“确认”“取消”，传入即本地化；`configuration.interfaceStyle` 默认 `.unspecified` 跟随宿主，设为 `.light` / `.dark` 可固定弹层外观。`PopoverAnimation.scale(0.8)` 可调整缩放幅度，`.scale` 仍是 0.92。与阅读器旧基类的逐项对照见 [阅读器对照](Docs/ReaderParity.md)。
+
 ## Toast 提示
 
 `BoneToastView` 支持顶部长条、底部长条和中间方块，以及成功、失败、提示、加载中四种类型。四种类型均默认停留 **2 秒**后自动关闭，无遮罩，允许继续操作底层页面。按需选择一种用法：
@@ -122,6 +124,8 @@ BoneToastView(message: "正在加载", type: .loading, style: .center).show(from
 | `contentToButtonsSpacing` | 内容到按钮间距 | 14 | 正文或输入框到按钮区域；无正文操作列表中为标题到首个按钮的距离。 |
 | `buttonSpacing` | 按钮间距 | 12 | 横排、竖排按钮及操作列表动作之间的距离。 |
 | `buttonContentInsets` | 按钮内边距 | 上下 12，leading/trailing 各 16 | 按钮文字和图标周围的留白。 |
+| `closeButtonImage` | 操作列表关闭按钮图标 | `nil` | `nil` 使用内置 12 点 `chevron.down`；替换后仍沿用标题色。 |
+| `closeButtonSize` | 操作列表关闭按钮边长 | 40 点 | 方形命中区；非法值回退 40 点。 |
 | `adjustsFontForContentSizeCategory` | 动态字号 | `true` | 随系统文字大小缩放基础字体；设为 `false` 使用固定字号。 |
 | `buttonLayout` | Alert 按钮排列 | `.automatic` | 支持自动、等宽横排、等宽竖排；操作列表始终竖排。 |
 

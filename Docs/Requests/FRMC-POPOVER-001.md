@@ -100,3 +100,12 @@
   - 若建议接受：请给出参数或配置的最终形态、`nil`/空字符串语义、运行时变更的重新测量要求、需要补的测试范围、兼容风险与建议版本号；本稿不视为实现授权。
 
 本稿不自动创建 Issue、发送消息、修改 SDK、发布版本或承诺完成时间。
+
+## 追加：本仓库已先行实现（2026-11-12）
+
+本稿核对后，本仓库（SDK 侧）已直接落地其中最小方案，转交时可作为“已有实现参考”而非待评估提案：
+
+- `configuration.buttonTitles`（`PopoverButtonTitles`，字段默认 `nil`）+ `BoneAlertView.confirmTitle` / `cancelTitle`；空串视为未配置；显示期间修改立即生效并重新测量。
+- 默认值仍为“确认”“取消”，旧调用与渲染不变；宿主直接改写 `button.configuration?.title` 的旧路径继续被保留（仅在配置项变化时回写）。
+- 验证：`Tests/BonePopoverKitTests/PopoverReaderParityTests.swift`（5 项）、核心回归 79/79；记录见 `Docs/Validation.md`。
+- 仍未做：`nil`/空串之外的语义（如 `String` 模板、内置多语言包）与其它硬编码文案（关闭按钮 a11y 标签、Toast 类型文案）未一并处理。

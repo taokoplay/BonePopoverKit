@@ -68,6 +68,15 @@ public struct PopoverContentStyle {
     /// Alert 的按钮排列方式，默认 automatic；操作列表始终保持竖排。
     public var buttonLayout: PopoverAlertButtonLayout = .automatic
 
+    // MARK: - 操作列表头部
+
+    /// 操作列表标题左侧关闭按钮的图标，默认 nil 使用 12 点 medium 的 `chevron.down`。
+    /// 替换图标后仍沿用标题色；关闭按钮的辅助功能标签与点击行为不变。
+    public var closeButtonImage: UIImage?
+
+    /// 关闭按钮的方形命中区边长，默认 40 点；非有限或非正值回退 40 点。
+    public var closeButtonSize: CGFloat = 40
+
     /// 创建使用 SDK 默认字体、颜色、对齐与间距的内容样式。
     public init() {}
 
@@ -85,6 +94,11 @@ public struct PopoverContentStyle {
                                 leading: metric(contentInsets.leading, fallback: 24),
                                 bottom: metric(contentInsets.bottom, fallback: 24),
                                 trailing: metric(contentInsets.trailing, fallback: 24))
+    }
+
+    /// 关闭按钮的实际边长：过滤非法值后供约束使用。
+    var resolvedCloseButtonSize: CGFloat {
+        closeButtonSize.isFinite && closeButtonSize > 0 ? closeButtonSize : 40
     }
 
     /// 按钮内边距同样经过合法性处理，避免非法值进入 UIKit 布局计算。

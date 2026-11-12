@@ -84,6 +84,13 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
         guard !isInvalidated, let popover else { return }
         let configuration = popover.configuration
         popover.applyContentStyle()
+        // 界面样式覆盖：`.unspecified` 恢复继承宿主与系统，保持旧行为。
+        if overrideUserInterfaceStyle != configuration.interfaceStyle {
+            overrideUserInterfaceStyle = configuration.interfaceStyle
+        }
+        if popover.overrideUserInterfaceStyle != configuration.interfaceStyle {
+            popover.overrideUserInterfaceStyle = configuration.interfaceStyle
+        }
         surface.apply(configuration.appearance,
                       reduceTransparency: configuration.respectsReduceTransparency && UIAccessibility.isReduceTransparencyEnabled,
                       customBackground: popover.customBackgroundView)

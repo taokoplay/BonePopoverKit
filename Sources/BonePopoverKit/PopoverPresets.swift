@@ -64,10 +64,52 @@ open class BoneAlertView: BonePopoverView {
         get { textField.text ?? "" }
         set { textField.text = newValue }
     }
+
+    /// 确认按钮标题；nil 表示沿用 SDK 默认的“确认”，读取时返回当前生效文字。
+    public var confirmTitle: String? {
+        get { configuration.buttonTitles.confirm }
+        set { configuration.buttonTitles.confirm = newValue }
+    }
+
+    /// 取消按钮标题；nil 表示沿用 SDK 默认的“取消”，读取时返回当前生效文字。
+    public var cancelTitle: String? {
+        get { configuration.buttonTitles.cancel }
+        set { configuration.buttonTitles.cancel = newValue }
+    }
     private var confirmCallback: (() -> Void)?
     private var inputCallback: ((String) -> Void)?
     private let buttonRow = UIStackView()
     private let contentStack = makePopoverStack()
+
+    /// 上一次应用过的标题配置；用于区分“配置变化”与“宿主直接改写按钮标题”。
+    private var lastAppliedTitles: PopoverButtonTitles?
+
+    /// 未配置时的默认按钮文案，保持与旧版本一致。
+    private static let defaultConfirmTitle = "确认"
+    private static let defaultCancelTitle = "取消"
+    private var resolvedConfirmTitle: String { resolvedTitle(configuration.buttonTitles.confirm,
+                                                             fallback: Self.defaultConfirmTitle) }
+    private var resolvedCancelTitle: String { resolvedTitle(configuration.buttonTitles.cancel,
+                                                            fallback: Self.defaultCancelTitle) }
+
+    /// nil 或空字符串都视为未配置，回退 SDK 默认文案。
+    private func resolvedTitle(_ value: String?, fallback: String) -> String {
+        guard let value, !value.isEmpty else { return fallback }
+        return value
+    }
+
+    /// 同步按钮文案。只在 `configuration.buttonTitles` 真正变化时改写，
+    /// 以保留宿主直接写在 button.configuration 上的自定义文案（旧行为）。
+    /// 文字宽度变化会影响面板测量，因此改写后请求重新布局。
+    private func applyButtonTitles() {
+        guard isViewLoaded else { return }
+        let titles = configuration.buttonTitles
+        guard lastAppliedTitles != titles else { return }
+        lastAppliedTitles = titles
+        confirmButton.configuration?.title = resolvedConfirmTitle
+        cancelButton.configuration?.title = resolvedCancelTitle
+        invalidatePopoverLayout()
+    }
 
     private static var alertConfiguration: PopoverConfiguration {
         var value = PopoverConfiguration.centerDialog
@@ -113,8 +155,8 @@ open class BoneAlertView: BonePopoverView {
             textField.heightAnchor.constraint(greaterThanOrEqualToConstant: 48).isActive = true
             contentStack.addArrangedSubview(textField)
         }
-        configurePopoverButton(confirmButton, title: "确认", prominent: true)
-        configurePopoverButton(cancelButton, title: "取消", prominent: false)
+        configurePopoverButton(confirmButton, title: resolvedConfirmTitle, prominent: true)
+        configurePopoverButton(cancelButton, title: resolvedCancelTitle, prominent: false)
         confirmButton.addAction(UIAction { [weak self] _ in self?.confirm() }, for: .touchUpInside)
         cancelButton.addAction(UIAction { [weak self] _ in self?.hidden() }, for: .touchUpInside)
         buttonRow.axis = .horizontal
@@ -144,6 +186,7 @@ open class BoneAlertView: BonePopoverView {
             contentStack.setCustomSpacing(style.resolvedContentSpacing, after: content)
         }
         buttonRow.spacing = style.resolvedButtonSpacing
+        applyButtonTitles()
         baseView.setNeedsLayout()
     }
 
@@ -230,6 +273,10 @@ open class BoneActionSheetView: BonePopoverView {
     public let cancelButton = UIButton(type: .system)
     /// 标题左侧的向下箭头关闭按钮，点击关闭弹窗；对应阅读器 sheet 默认头部。
     public let closeButton = UIButton(type: .system)
+
+    /// 关闭按钮的宽高约束，随 contentStyle.closeButtonSize 更新。
+    private var closeWidth: NSLayoutConstraint?
+    private var closeHeight: NSLayoutConstraint?
     /// 是否在标题左侧显示关闭按钮，默认显示（阅读器默认样式）。
     /// 加载前设置决定初始头部；加载后修改立即显示或隐藏，标题前置约束同步更新。
     public var showsCloseButton: Bool = true {
@@ -293,11 +340,14 @@ open class BoneActionSheetView: BonePopoverView {
         applyContentStyle()
     }
 
-    /// 配置关闭按钮：40 × 40 点圆形命中区，点击关闭；只在 viewDidLoad 执行一次。
+    /// 配置关闭按钮：默认 40 × 40 点命中区，尺寸与图标由 contentStyle 控制；只在 viewDidLoad 执行一次。
     private func configureCloseButton() {
         closeButton.translatesAutoresizingMaskIntoConstraints = false
-        closeButton.widthAnchor.constraint(equalToConstant: 40).isActive = true
-        closeButton.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        let size = configuration.contentStyle.resolvedCloseButtonSize
+        closeWidth = closeButton.widthAnchor.constraint(equalToConstant: size)
+        closeHeight = closeButton.heightAnchor.constraint(equalToConstant: size)
+        closeWidth?.isActive = true
+        closeHeight?.isActive = true
         closeButton.accessibilityLabel = "关闭"
         closeButton.accessibilityIdentifier = "popover-close"
         closeButton.addAction(UIAction { [weak self] _ in self?.hidden() }, for: .touchUpInside)
@@ -350,6 +400,7 @@ open class BoneActionSheetView: BonePopoverView {
         applyPopoverTypography(style, title: titleLabel, message: messageLabel,
                                buttons: actionButtons + [cancelButton], traits: traitCollection)
         applyCloseButtonStyle(style)
+        updateCloseButtonSize(style.resolvedCloseButtonSize)
         // 标题对齐可能在显示期间改变，前置约束需跟随重新启用，避免居中标题被按钮留白推偏。
         applyTitleLeadingConstraint()
         contentStack.directionalLayoutMargins = style.resolvedContentInsets
@@ -365,25 +416,37 @@ open class BoneActionSheetView: BonePopoverView {
     }
 
     /// 关闭按钮外观：小号向下箭头；iOS 26+ 使用液态玻璃圆圈按钮，早期系统回退半透明圆圈。
+    /// 关闭按钮外观：默认 12 点向下箭头；iOS 26+ 使用液态玻璃圆圈按钮，早期系统回退半透明圆圈。
+    /// `contentStyle.closeButtonImage` 可替换图标，nil 时使用内置箭头。
     private func applyCloseButtonStyle(_ style: PopoverContentStyle) {
-        let chevron = UIImage(systemName: "chevron.down",
-                              withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .medium))
+        let image = style.closeButtonImage ?? UIImage(
+            systemName: "chevron.down",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .medium))
         #if compiler(>=6.2)
         if #available(iOS 26.0, *) {
             var configuration = UIButton.Configuration.glass()
             configuration.cornerStyle = .capsule
-            configuration.image = chevron
+            configuration.image = image
             closeButton.configuration = configuration
             closeButton.tintColor = style.titleColor
             return
         }
         #endif
         closeButton.configuration = nil
-        closeButton.setImage(chevron, for: .normal)
+        closeButton.setImage(image, for: .normal)
         closeButton.tintColor = style.titleColor
         closeButton.backgroundColor = style.titleColor.withAlphaComponent(0.08)
-        closeButton.layer.cornerRadius = 20
+        closeButton.layer.cornerRadius = style.resolvedCloseButtonSize / 2
         closeButton.clipsToBounds = true
+    }
+
+    /// 命中区跟随 contentStyle 变化；标题前置约束按按钮实际宽度计算，尺寸变化后重新布局。
+    private func updateCloseButtonSize(_ size: CGFloat) {
+        guard closeWidth?.constant != size || closeHeight?.constant != size else { return }
+        closeWidth?.constant = size
+        closeHeight?.constant = size
+        closeButton.layer.cornerRadius = size / 2
+        baseView.setNeedsLayout()
     }
 }
 

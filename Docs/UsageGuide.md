@@ -313,6 +313,8 @@ alert.configuration.contentStyle.contentToButtonsSpacing = 24
 | `contentToButtonsSpacing` | 内容到按钮间距 | 14 | 正文或输入框到按钮区域；无正文操作列表中为标题到首个按钮的距离。 |
 | `buttonSpacing` | 按钮间距 | 12 | 横排、竖排按钮及操作列表动作之间的距离。 |
 | `buttonContentInsets` | 按钮内边距 | 上下 12，leading/trailing 各 16 | 按钮文字和图标周围的留白。 |
+| `closeButtonImage` | 操作列表关闭按钮图标 | `nil` | `nil` 使用 12 点 medium 的 `chevron.down`；替换后仍沿用标题色。 |
+| `closeButtonSize` | 操作列表关闭按钮边长 | 40 点 | 方形命中区；非有限或非正值回退 40 点。 |
 | `adjustsFontForContentSizeCategory` | 动态字号 | `true` | 随系统文字大小缩放基础字体；设为 `false` 使用固定字号。 |
 | `buttonLayout` | Alert 按钮排列 | `.automatic` | 支持自动、等宽横排、等宽竖排；操作列表始终竖排。 |
 
@@ -484,6 +486,8 @@ alert.show(from: presenter)
 | 字段 | 名称 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `showsBackdrop` | 显示遮罩 | `true` | 只控制视觉遮罩，不控制触摸是否传给底层。 |
+| `interfaceStyle` | 界面样式覆盖 | `.unspecified` | 默认跟随宿主与系统；设为 `.light` / `.dark` 固定弹层与遮罩外观，设回 `.unspecified` 恢复继承。 |
+| `buttonTitles` | 内置按钮文案 | 均为 `nil` | `confirm` / `cancel` 为 `nil` 时使用“确认”“取消”；显示期间修改立即生效并重新测量。 |
 | `appearance.backdropColor` | 遮罩颜色 | `.black` | 外部背景遮罩的颜色。 |
 | `appearance.backdropOpacity` | 遮罩不透明度 | 0.32 | 遮罩的视觉浓度；顶部通知预设为 0.12。 |
 | `dismissOnBackdropTap` | 外部点击关闭 | `true` | 不穿透时，点击面板外部是否请求关闭；输入框预设为 `false`。 |

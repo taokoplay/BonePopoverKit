@@ -45,11 +45,17 @@ public struct PopoverAnimation {
         Self(duration: 0.2) { _, _, _ in PopoverVisualState(opacity: 0) }
     }
 
-    public static var scale: Self {
-        Self(duration: 0.25) { _, _, _ in
-            PopoverVisualState(transform: .init(scaleX: 0.92, y: 0.92), opacity: 0)
+    /// 缩放淡入；默认从 0.92 倍开始，旧 `.scale` 等价于 `.scale()`。
+    /// 阅读器类应用需要更明显的收放时可传 0.8 等比例，比例会被夹在 0...1。
+    public static func scale(_ factor: CGFloat = 0.92, duration: TimeInterval = 0.25,
+                             dampingRatio: CGFloat = 1) -> Self {
+        let clamped = factor.isFinite ? min(1, max(0, factor)) : 0.92
+        return Self(duration: duration, dampingRatio: dampingRatio) { _, _, _ in
+            PopoverVisualState(transform: .init(scaleX: clamped, y: clamped), opacity: 0)
         }
     }
+
+    public static var scale: Self { scale() }
 
     public static var spring: Self {
         Self(duration: 0.4, dampingRatio: 0.82) { _, _, _ in

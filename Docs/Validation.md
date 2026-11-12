@@ -323,3 +323,10 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - 面板底色仍由 `configuration.appearance.backgroundColor` 控制（`.bottomSheet` 为 `systemBackground`），与行背景相互独立。
 - 真机/模拟器取色核对（深色模式，截图 `Screenshots/iPhoneDuo/drawer-cells-dark.png`）：面板 `#000000`（systemBackground）、行背景 `#1C1C1E`（secondarySystemBackground）、分隔线 `#383838`，行高 54.3 点、两侧 16 点内缩，圆角落在分区首尾行。
 - 测试：`testRowBackgroundColorAndGroupedCorners` 断言默认行背景与首尾 `maskedCorners`，并验证改 `cellBackgroundColor`/`cellCornerRadius` 后立即生效；核心回归 **88/88 通过**（`core-drawer4.log`）。
+
+## 抽屉头部对齐阅读器（关闭在右上、确定在左上）
+
+- 布局改为：标题居中，右上角关闭按钮（×，40 × 40 命中区、辅助功能标识 `drawer-close`），有选择型分区时左上角显示“确定”（capsule，标识 `drawer-confirm`）；底部不再放取消行。
+- `cancelTitle` 更名为 `closeAccessibilityLabel`，只作为关闭按钮的辅助功能标签（默认“关闭”），不再渲染为文字按钮；`confirmTitle` 仍控制“确定”文案。
+- 过程中发现并修复真实缺陷：`rebuildRows()` 每次只移除行、没有移除分区标题，重复重建让面板不断长高（`contentStack` 从 11 → 14 → 17），最终铺满可用高度，右上角的按钮因此被挤到屏幕顶端且 `isHittable == false`。改为“保留首个标题行、其余全部重建”后行数稳定为 7、面板高度回落到内容高度，按钮可点。
+- 测试：新增 `testHeaderPlacesCloseAtTopRightAndConfirmAtTopLeft`（关闭按钮位于右上、确定位于左上、确定可提交）与 `testDemoConfigurationKeepsRowCountStable`（7 行、面板高度 < 600）；抽屉用例 **7/7 通过**（`drawer-rows3.log`），Demo UI `testDrawerSceneSelectsRowAndReportsResult` **1/1 通过**（`ui-drawer8.log`），核心回归见 `core-drawer5.log`。

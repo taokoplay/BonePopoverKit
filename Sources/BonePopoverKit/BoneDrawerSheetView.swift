@@ -85,8 +85,8 @@ open class BoneDrawerSheetView: BonePopoverView {
         didSet { applyButtonTitles() }
     }
 
-    /// 取消按钮文案；nil 使用“取消”。
-    public var cancelTitle: String? {
+    /// 右上角关闭按钮的辅助功能标签；nil 使用“关闭”。
+    public var closeAccessibilityLabel: String? {
         didSet { applyButtonTitles() }
     }
 
@@ -174,12 +174,11 @@ open class BoneDrawerSheetView: BonePopoverView {
         configurePopoverLabel(titleLabel)
         titleLabel.accessibilityTraits.insert(.header)
         contentStack.spacing = 0
-        contentStack.addArrangedSubview(titleLabel)
-        configurePopoverButton(confirmButton, title: resolvedConfirmTitle, prominent: true)
+        contentStack.addArrangedSubview(makeHeaderRow())
         confirmButton.accessibilityIdentifier = "drawer-confirm"
         confirmButton.addAction(UIAction { [weak self] _ in self?.confirm() }, for: .touchUpInside)
-        configurePopoverButton(cancelButton, title: resolvedCancelTitle, prominent: false)
-        cancelButton.accessibilityIdentifier = "drawer-cancel"
+        cancelButton.accessibilityIdentifier = "drawer-close"
+        cancelButton.accessibilityLabel = resolvedCloseLabel
         cancelButton.addAction(UIAction { [weak self] _ in self?.hidden() }, for: .touchUpInside)
         setContentView(contentStack)
         rebuildRows()
@@ -199,9 +198,10 @@ open class BoneDrawerSheetView: BonePopoverView {
     /// 按当前 sections 重建行与按钮；调用开销小，可直接在增删与配置变化时复用。
     private func rebuildRows() {
         guard isViewLoaded else { return }
-        for row in rowControls.joined() {
-            contentStack.removeArrangedSubview(row)
-            row.removeFromSuperview()
+        // 只保留首个标题行，其余（分区标题与行）全部重建，避免重复堆积。
+        for view in contentStack.arrangedSubviews.dropFirst() {
+            contentStack.removeArrangedSubview(view)
+            view.removeFromSuperview()
         }
         rowControls = sections.map { _ in [] }
 
@@ -219,11 +219,50 @@ open class BoneDrawerSheetView: BonePopoverView {
             }
         }
 
-        contentStack.addArrangedSubview(confirmButton)
-        contentStack.addArrangedSubview(cancelButton)
         confirmButton.isHidden = !hasConfirmOperation
         refreshSelection()
         invalidatePopoverLayout()
+    }
+
+    /// 标题行：标题居中，右上角关闭按钮，有选择型分区时左上角显示“确定”。
+    private func makeHeaderRow() -> UIView {
+        let header = UIView()
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        header.addSubview(titleLabel)
+
+        cancelButton.translatesAutoresizingMaskIntoConstraints = false
+        var closeConfig = UIButton.Configuration.plain()
+        closeConfig.image = UIImage(systemName: "xmark",
+                                    withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold))
+        closeConfig.baseForegroundColor = .secondaryLabel
+        cancelButton.configuration = closeConfig
+        cancelButton.accessibilityIdentifier = "drawer-close"
+        cancelButton.accessibilityLabel = resolvedCloseLabel
+        header.addSubview(cancelButton)
+
+        confirmButton.translatesAutoresizingMaskIntoConstraints = false
+        var confirmConfig = UIButton.Configuration.tinted()
+        confirmConfig.title = resolvedConfirmTitle
+        confirmConfig.cornerStyle = .capsule
+        confirmConfig.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12)
+        confirmButton.configuration = confirmConfig
+        confirmButton.configuration?.baseForegroundColor = sheetConfig.highlightColor
+        header.addSubview(confirmButton)
+
+        NSLayoutConstraint.activate([
+            titleLabel.topAnchor.constraint(equalTo: header.topAnchor, constant: 12),
+            titleLabel.bottomAnchor.constraint(equalTo: header.bottomAnchor, constant: -12),
+            titleLabel.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 56),
+            titleLabel.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -56),
+            cancelButton.topAnchor.constraint(equalTo: header.topAnchor),
+            cancelButton.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -8),
+            cancelButton.widthAnchor.constraint(equalToConstant: 40),
+            cancelButton.heightAnchor.constraint(equalToConstant: 40),
+            confirmButton.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 12),
+            confirmButton.centerYAnchor.constraint(equalTo: cancelButton.centerYAnchor),
+            confirmButton.heightAnchor.constraint(equalToConstant: 30)
+        ])
+        return header
     }
 
     private func makeSectionHeader(_ section: Section, isFirst: Bool) -> UIView {
@@ -407,15 +446,15 @@ open class BoneDrawerSheetView: BonePopoverView {
         return "确定"
     }
 
-    private var resolvedCancelTitle: String {
-        if let text = cancelTitle, !text.isEmpty { return text }
-        return "取消"
+    private var resolvedCloseLabel: String {
+        if let text = closeAccessibilityLabel, !text.isEmpty { return text }
+        return "关闭"
     }
 
     private func applyButtonTitles() {
         guard isViewLoaded else { return }
         confirmButton.configuration?.title = resolvedConfirmTitle
-        cancelButton.configuration?.title = resolvedCancelTitle
+        cancelButton.accessibilityLabel = resolvedCloseLabel
         invalidatePopoverLayout()
     }
 }

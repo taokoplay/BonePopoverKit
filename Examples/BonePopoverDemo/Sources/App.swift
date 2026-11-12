@@ -58,7 +58,8 @@ final class DemoViewController: UITableViewController {
     private let motions = ["场景默认", "淡入淡出", "缩放", "弹簧", "自定义"]
     private var selectedStyle = 0
     private var selectedMotion = 0
-    private var selectedTitleAlignment: NSTextAlignment = .left
+    /// nil 表示沿用预设默认对齐（`.bottomSheet` 为居中）；用户选过菜单后才覆盖。
+    private var selectedTitleAlignment: NSTextAlignment?
     private var selectedToastType: BoneToastView.ToastType = .success
     private var selectedToastDuration: TimeInterval = 2
     private weak var currentPopover: BonePopoverView?
@@ -110,7 +111,7 @@ final class DemoViewController: UITableViewController {
     }
 
     private func updateTitleAlignmentMenu() {
-        let options: [(String, NSTextAlignment)] = [("左对齐", .left), ("居中", .center), ("右对齐", .right)]
+        let options: [(String, NSTextAlignment?)] = [("预设默认", nil), ("左对齐", .left), ("居中", .center), ("右对齐", .right)]
         let actions = options.map { title, alignment in
             UIAction(title: title, state: selectedTitleAlignment == alignment ? .on : .off) { [weak self] _ in
                 self?.selectedTitleAlignment = alignment
@@ -279,13 +280,13 @@ final class DemoViewController: UITableViewController {
             popover.configuration.appearance = appearance
         }
         if let alert = popover as? BoneAlertView {
-            alert.titleAlignment = selectedTitleAlignment
+            if let alignment = selectedTitleAlignment { alert.titleAlignment = alignment }
             alert.titleLabel.accessibilityIdentifier = "popover-title"
             alert.messageLabel.accessibilityIdentifier = "popover-message"
             alert.cancelButton.accessibilityIdentifier = "popover-cancel"
             alert.confirmButton.accessibilityIdentifier = "popover-confirm"
         } else if let sheet = popover as? BoneActionSheetView {
-            sheet.titleAlignment = selectedTitleAlignment
+            if let alignment = selectedTitleAlignment { sheet.titleAlignment = alignment }
             sheet.titleLabel.accessibilityIdentifier = "popover-title"
             sheet.messageLabel.accessibilityIdentifier = "popover-message"
             sheet.cancelButton.accessibilityIdentifier = "popover-cancel"
@@ -316,7 +317,7 @@ final class DemoViewController: UITableViewController {
     private func toggleContentStyle() {
         guard let popover = currentPopover else { return }
         var style = PopoverContentStyle()
-        style.titleAlignment = selectedTitleAlignment
+        if let alignment = selectedTitleAlignment { style.titleAlignment = alignment }
         if popover.configuration.contentStyle.titleFont.pointSize == 18 {
             style.titleFont = .boldSystemFont(ofSize: 24)
             style.messageFont = .systemFont(ofSize: 19)

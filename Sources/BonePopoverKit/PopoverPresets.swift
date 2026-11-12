@@ -308,8 +308,10 @@ open class BoneActionSheetView: BonePopoverView {
     private func configureHeaderRow() {
         closeButton.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        headerRow.addSubview(closeButton)
+        // 标题先加、按钮后加：居中标题会横贯整行覆盖按钮位置，
+        // 按钮置于上层才能保持真实点击与辅助功能命中。
         headerRow.addSubview(titleLabel)
+        headerRow.addSubview(closeButton)
         NSLayoutConstraint.activate([
             closeButton.leadingAnchor.constraint(equalTo: headerRow.leadingAnchor),
             closeButton.centerYAnchor.constraint(equalTo: headerRow.centerYAnchor),

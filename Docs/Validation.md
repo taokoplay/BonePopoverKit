@@ -252,3 +252,10 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - Duo（8E80DEE0，iOS 27.1）切到系统浅色外观（`simctl ui … appearance light`）重跑 `testActionSheetUsesReaderDefaultSheetLayout`，**1/1 通过**（`sheet-reader-light.log` / `SheetReaderLight.xcresult`）。截图 `Screenshots/iPhoneDuo/action-sheet-reader-default-light.png`（1398 × 2034）确认：面板为纯白 `systemBackground`、底部两角为直角、底层列表保持 `secondarySystemBackground` 亮度（无遮罩）。验证完恢复模拟器原来的深色外观。
 - iPad Pro 11-inch (M4) 模拟器（99C156C5，iOS 27.1）同一用例 **1/1 通过**（`sheet-reader-pad.log` / `SheetReaderPad.xcresult`）：面板宽度断言 `≤ 561` 通过，说明 560 点上限在 834 点宽的平板上生效（未封顶会是整窗宽度），底缘贴窗口底部，关闭按钮可点。
 - 结论：`.bottomSheet` 的「贴底、宽度取所在可用区、560 点上限」在手机与平板都成立；「严格整窗满宽」只在小屏手机成立，平板按 560 点居中，该差异已写入 README 与 UsageGuide，不在代码层改变宽度策略。
+
+## Demo 呈现与真机安装
+
+- Demo「标题对齐」菜单新增「预设默认」（初始选中，`selectedTitleAlignment` 改为可选）：只有用户主动选过左/中/右才覆盖内置标题对齐，因此「底部操作列表」场景直接呈现 `.bottomSheet` 的居中标题与左侧关闭按钮。告警与输入框预设默认仍是左对齐，行为不变。
+- 该调整让 `testActionSheetUsesReaderDefaultSheetLayout` 首次以居中标题运行，暴露真实缺陷：居中标题横贯整行后覆盖关闭按钮位置，XCUITest 判定按钮不可点（`Error: -[...] : XCTAssertTrue failed - 标题左侧应有向下箭头关闭按钮`）。修复为标题先加入、关闭按钮后加入以取得更高层级，并在 `testActionSheetCloseButtonDismissesAndCanBeHidden` 中新增 subview 顺序断言（按钮必须在标题之上）。修复后核心 **74/74 通过**（`core-zorder.log`），`testActionSheetUsesReaderDefaultSheetLayout` 与 `testTitleAlignmentAndFullWidthButtons` **2/2 通过**（`demo-align2.log`）；修复前的失败记录保留在 `demo-align.log`。
+- 真机：iPhone 13 Pro「Yu iPhone 13Pro」（iOS 26.5，UDID `00008110-000620DC0AA2801E`），Team `2PX9496FD6` 自动签名（profile 为 `iOS Team Provisioning Profile: *`，含该设备），`xcodebuild build` 生成 `Debug-iphoneos/BonePopoverDemo.app` → `devicectl install` 安装成功 → `devicectl process launch` 前台启动成功（进程 pid 6140）。首次启动被系统以 `Locked` 拒绝，解锁手机后重试成功。
+- 真机验证范围：仅确认新构建可安装并启动，未做真机上的逐场景人工点检。

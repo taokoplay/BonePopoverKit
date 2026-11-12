@@ -102,6 +102,11 @@ final class PopoverPresetLayoutTests: XCTestCase {
         defer { sheet.dismissPopover(animated: false) }
         XCTAssertNotNil(sheet.closeButton.superview)
         XCTAssertTrue(sheet.closeButton.superview === sheet.titleLabel.superview, "关闭按钮与标题在同一标题行")
+        // 居中标题横贯整行会覆盖按钮位置，按钮必须在标题之上才能被真实点击与辅助功能命中。
+        let siblings = sheet.titleLabel.superview?.subviews ?? []
+        let titleIndex = siblings.firstIndex(of: sheet.titleLabel) ?? -1
+        let closeIndex = siblings.firstIndex(of: sheet.closeButton) ?? -1
+        XCTAssertGreaterThan(closeIndex, titleIndex, "关闭按钮应位于标题之上")
         XCTAssertEqual(sheet.closeButton.frame.width, 40, accuracy: 1)
         XCTAssertEqual(sheet.closeButton.frame.height, 40, accuracy: 1)
         let hasChevron = sheet.closeButton.image(for: .normal) != nil

@@ -94,6 +94,31 @@ final class PopoverDrawerSheetTests: XCTestCase {
         XCTAssertEqual(sheet.presentationState, .hidden)
     }
 
+    /// 行背景色与分组圆角：默认次级背景，首行圆上两角、末行圆下两角；改配置后立即生效。
+    @MainActor
+    func testRowBackgroundColorAndGroupedCorners() throws {
+        let sheet = drawer()
+        let (window, _, _) = try present(sheet)
+        defer { sheet.dismissPopover(animated: false); window.isHidden = true }
+
+        func background(of identifier: String) throws -> UIView {
+            let row = try XCTUnwrap(control(identifier, in: sheet.baseView))
+            return try XCTUnwrap(row.subviews.first { $0.accessibilityIdentifier == "drawer-row-bg" })
+        }
+
+        let first = try background(of: "drawer-row-0-0")
+        let last = try background(of: "drawer-row-0-1")
+        XCTAssertEqual(first.backgroundColor, .secondarySystemBackground, "默认行背景为次级背景色")
+        XCTAssertEqual(first.layer.maskedCorners, [.layerMinXMinYCorner, .layerMaxXMinYCorner])
+        XCTAssertEqual(last.layer.maskedCorners, [.layerMinXMaxYCorner, .layerMaxXMaxYCorner])
+
+        sheet.sheetConfig.cellBackgroundColor = .systemRed
+        sheet.sheetConfig.cellCornerRadius = 4
+        let updated = try background(of: "drawer-row-0-0")
+        XCTAssertEqual(updated.backgroundColor, .systemRed)
+        XCTAssertEqual(updated.layer.cornerRadius, 4, accuracy: 0.1)
+    }
+
     /// 遮罩默认按预设：确认框 0.32；showsBackdrop 可关闭/重开；底部预设默认无遮罩。
     @MainActor
     func testBackdropDimmingFollowsPresetAndShowsBackdrop() throws {

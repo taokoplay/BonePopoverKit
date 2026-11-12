@@ -48,6 +48,14 @@ open class BoneDrawerSheetView: BonePopoverView {
         public var highlightColor: UIColor = .tintColor
         /// 行文字对齐，默认左对齐。
         public var textAlignment: NSTextAlignment = .left
+        /// 行背景色，默认次级背景；面板底色由 `configuration.appearance.backgroundColor` 控制。
+        public var cellBackgroundColor: UIColor = .secondarySystemBackground
+        /// 分组首尾行的圆角，默认 10 点。
+        public var cellCornerRadius: CGFloat = 10
+        /// 行背景与面板左右边缘的间距，默认 16 点。
+        public var horizontalInset: CGFloat = 16
+        /// 行之间的分隔线颜色，默认系统分隔色；每个分区最后一行不画。
+        public var cellSeparatorColor: UIColor = .separator
 
         public init() {}
     }
@@ -203,7 +211,9 @@ open class BoneDrawerSheetView: BonePopoverView {
             }
             for (rowIndex, model) in section.buttons.enumerated() {
                 let row = makeRow(model, indexPath: IndexPath(row: rowIndex, section: sectionIndex),
-                                  type: section.type)
+                                  type: section.type,
+                                  isFirst: rowIndex == 0,
+                                  isLast: rowIndex == section.buttons.count - 1)
                 contentStack.addArrangedSubview(row)
                 rowControls[sectionIndex].append(row)
             }
@@ -238,11 +248,24 @@ open class BoneDrawerSheetView: BonePopoverView {
         return container
     }
 
-    private func makeRow(_ model: ButtonModel, indexPath: IndexPath, type: SectionType) -> UIControl {
+    private func makeRow(_ model: ButtonModel, indexPath: IndexPath, type: SectionType,
+                         isFirst: Bool, isLast: Bool) -> UIControl {
         let row = UIControl()
         row.accessibilityIdentifier = "drawer-row-\(indexPath.section)-\(indexPath.row)"
         row.accessibilityLabel = model.text
         row.accessibilityTraits = .button
+        row.backgroundColor = .clear
+
+        // 背景层单独承担颜色与分组圆角，行本身保持透明以便露出面板底色。
+        let background = UIView()
+        background.backgroundColor = sheetConfig.cellBackgroundColor
+        background.accessibilityIdentifier = "drawer-row-bg"
+        background.layer.cornerRadius = sheetConfig.cellCornerRadius
+        background.layer.maskedCorners = cornerMask(isFirst: isFirst, isLast: isLast)
+        background.layer.masksToBounds = true
+        background.isUserInteractionEnabled = false
+        background.translatesAutoresizingMaskIntoConstraints = false
+        row.addSubview(background)
 
         let label = UILabel()
         label.text = model.text
@@ -255,7 +278,7 @@ open class BoneDrawerSheetView: BonePopoverView {
         let accessory = UIImageView(image: UIImage(systemName: accessorySymbol(for: type)))
         accessory.tintColor = sheetConfig.highlightColor
         accessory.contentMode = .scaleAspectFit
-        accessory.isHidden = { if case .normal = type { return true } else { return false } }()
+        accessory.isHidden = true
         accessory.tag = 99
         accessory.setContentHuggingPriority(.required, for: .horizontal)
         accessory.widthAnchor.constraint(equalToConstant: 20).isActive = true
@@ -266,32 +289,46 @@ open class BoneDrawerSheetView: BonePopoverView {
         stack.spacing = 12
         stack.isUserInteractionEnabled = false
         stack.translatesAutoresizingMaskIntoConstraints = false
-        row.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: row.topAnchor, constant: 12),
-            stack.bottomAnchor.constraint(equalTo: row.bottomAnchor, constant: -12),
-            stack.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -20),
-            row.heightAnchor.constraint(greaterThanOrEqualToConstant: sheetConfig.cellHeight)
-        ])
+        background.addSubview(stack)
 
-        if !isDragSection(type) {
-            let separator = UIView()
-            separator.backgroundColor = .separator
-            separator.translatesAutoresizingMaskIntoConstraints = false
-            row.addSubview(separator)
-            NSLayoutConstraint.activate([
-                separator.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 20),
-                separator.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -20),
-                separator.bottomAnchor.constraint(equalTo: row.bottomAnchor),
-                separator.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale)
-            ])
-        }
+        let separator = UIView()
+        separator.backgroundColor = sheetConfig.cellSeparatorColor
+        separator.isHidden = isLast
+        separator.translatesAutoresizingMaskIntoConstraints = false
+        background.addSubview(separator)
+
+        NSLayoutConstraint.activate([
+            background.topAnchor.constraint(equalTo: row.topAnchor),
+            background.bottomAnchor.constraint(equalTo: row.bottomAnchor),
+            background.leadingAnchor.constraint(equalTo: row.leadingAnchor,
+                                                constant: sheetConfig.horizontalInset),
+            background.trailingAnchor.constraint(equalTo: row.trailingAnchor,
+                                                 constant: -sheetConfig.horizontalInset),
+            row.heightAnchor.constraint(greaterThanOrEqualToConstant: sheetConfig.cellHeight),
+            stack.topAnchor.constraint(equalTo: background.topAnchor, constant: 12),
+            stack.bottomAnchor.constraint(equalTo: background.bottomAnchor, constant: -12),
+            stack.leadingAnchor.constraint(equalTo: background.leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: background.trailingAnchor, constant: -16),
+            separator.leadingAnchor.constraint(equalTo: background.leadingAnchor, constant: 15),
+            separator.trailingAnchor.constraint(equalTo: background.trailingAnchor, constant: -15),
+            separator.bottomAnchor.constraint(equalTo: background.bottomAnchor),
+            separator.heightAnchor.constraint(equalToConstant: 0.5)
+        ])
 
         row.addAction(UIAction { [weak self] _ in
             self?.handleTap(indexPath: indexPath)
         }, for: .touchUpInside)
         return row
+    }
+
+    /// 分组首行只圆上两角、末行只圆下两角、单行四角全圆。
+    private func cornerMask(isFirst: Bool, isLast: Bool) -> CACornerMask {
+        if isFirst && isLast {
+            return [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        }
+        if isFirst { return [.layerMinXMinYCorner, .layerMaxXMinYCorner] }
+        if isLast { return [.layerMinXMaxYCorner, .layerMaxXMaxYCorner] }
+        return []
     }
 
     private func isDragSection(_ type: SectionType) -> Bool {

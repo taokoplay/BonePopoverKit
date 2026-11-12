@@ -243,7 +243,8 @@ drawer.show(from: presenter)
 
 - 分区类型：`.normal` 点击执行回调并关闭；`.singleSelect` 分区内单选；`.multipleSelect` 分区内多选；`.drag` 按添加顺序全部提交（当前版本不支持拖动排序）。
 - 标题相同即同一分区，第二个参数只决定新行是否默认选中；有选择型分区时才出现“确定”按钮，`selectAction` 在点“确定”后回调。
-- `sheetConfig` 可调 `openSectionTitle`、`sectionHeight`、`fontSize`、`cellHeight`、`highlightColor`、`textAlignment`；`confirmTitle` / `cancelTitle` 可改按钮文案。
+- `sheetConfig` 可调 `openSectionTitle`、`sectionHeight`、`fontSize`、`cellHeight`、`highlightColor`、`textAlignment`，以及颜色相关：`cellBackgroundColor`（行背景，默认 `.secondarySystemBackground`）、`cellCornerRadius`（分组首尾行圆角，默认 10 点）、`horizontalInset`（行背景距面板边缘，默认 16 点）、`cellSeparatorColor`（行间分隔线，默认系统分隔色）。
+- 面板底色由 `configuration.appearance.backgroundColor` 控制（`.bottomSheet` 预设为 `systemBackground`），与行背景相互独立；`confirmTitle` / `cancelTitle` 可改按钮文案。
 - 表面沿用 `.bottomSheet`（仅圆顶部两角、无阴影、0.15 秒滑入），默认显示抓手、标题居中。
 
 ### 3.5 Toast 提示

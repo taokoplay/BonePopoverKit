@@ -89,6 +89,8 @@ drawer.addButton(text: "仿真", value: "1", inSection: .singleSelect("翻页", 
 drawer.addButton(text: "浅色", value: "light", inSection: .multipleSelect("主题", false))
 drawer.addButton(text: "恢复默认", style: .highlight, inSection: .normal("")) { reset() }
 drawer.sheetConfig.openSectionTitle = true
+drawer.sheetConfig.cellBackgroundColor = .secondarySystemBackground   // 行背景
+drawer.sheetConfig.cellCornerRadius = 10                              // 分组首尾圆角
 drawer.selectAction { selections in print(selections) }   // [(text: String, value: String)]
 drawer.show(from: self)
 ```

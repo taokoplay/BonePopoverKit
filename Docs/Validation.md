@@ -316,3 +316,10 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - 追加修正：`BoneDrawerSheetView` 的用法改为与阅读器旧实现一致——`init(title:)` + `addButton(text:value:style:inSection:callback:)` + `selectAction { [(text, value)] }`，分区类型 `.normal/.singleSelect/.multipleSelect/.drag`，`sheetConfig`（`openSectionTitle`/`sectionHeight`/`fontSize`/`cellHeight`/`highlightColor`/`textAlignment`）与 `confirmTitle`/`cancelTitle` 保留。此前的 `init(sections:)` + `onSelect/onConfirm` 组合已移除。
 - 过程中发现并修复：`addButton` 最初用整个 `SectionType` 比较分区，`singleSelect("翻页", true)` 与 `("翻页", false)` 会被当成两个分区；按旧实现改为**按标题匹配**，初值 Bool 只决定新行默认选中。修复前测试报 `["平移"] != ["平移", "深色"]`（`drawer-tests3.log`），修复后 4 项抽屉测试通过（`drawer-tests4.log`）。
 - 重新验证：核心 **87/87 通过**（`core-drawer2.log`）；Demo UI `testDrawerSceneSelectsRowAndReportsResult`（先点“仿真”再点“确定”，结果条显示“抽屉提交：仿真”）**1/1 通过**（`ui-drawer2.log`）。真机：iPhone 13 Pro 构建 → 安装 → 启动成功。
+
+## 抽屉行的背景色与分组圆角（对齐阅读器 SheetCell）
+
+- `SheetConfig` 新增 `cellBackgroundColor`（默认 `.secondarySystemBackground`）、`cellCornerRadius`（默认 10）、`horizontalInset`（默认 16）、`cellSeparatorColor`（默认 `.separator`）；行背景改为独立背景层，按分区首/中/末决定 `maskedCorners`，最后一行不画分隔线，与阅读器 `BoneDrawerSheetCell.roundStyle` 一致。
+- 面板底色仍由 `configuration.appearance.backgroundColor` 控制（`.bottomSheet` 为 `systemBackground`），与行背景相互独立。
+- 真机/模拟器取色核对（深色模式，截图 `Screenshots/iPhoneDuo/drawer-cells-dark.png`）：面板 `#000000`（systemBackground）、行背景 `#1C1C1E`（secondarySystemBackground）、分隔线 `#383838`，行高 54.3 点、两侧 16 点内缩，圆角落在分区首尾行。
+- 测试：`testRowBackgroundColorAndGroupedCorners` 断言默认行背景与首尾 `maskedCorners`，并验证改 `cellBackgroundColor`/`cellCornerRadius` 后立即生效；核心回归 **88/88 通过**（`core-drawer4.log`）。

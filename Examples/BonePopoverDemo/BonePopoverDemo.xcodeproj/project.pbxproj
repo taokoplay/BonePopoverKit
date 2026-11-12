@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1D6D5AF344F7CE82454EC3AE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 02652EF4048B310E02097618 /* Assets.xcassets */; };
 		20EA8CC072FBD44180CF8C60 /* PopoverInteractionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04C1A58B91682D860F624BC /* PopoverInteractionUITests.swift */; };
 		30C3D0EEBA1AF1ABF8E99CCC /* PopoverWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9087E03AB694D07392FF33D /* PopoverWindowTests.swift */; };
 		4434DFEEEAB75CA941FA237E /* PopoverToastUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6530B7AAEDC44B4E77C5C297 /* PopoverToastUITests.swift */; };
@@ -41,6 +42,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		02652EF4048B310E02097618 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		08F00D529FC1FA120A6FA34C /* PopoverWindowSceneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverWindowSceneTests.swift; sourceTree = "<group>"; };
 		136B363F08F02997CBD69C3B /* PopoverContentStyleUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverContentStyleUITests.swift; sourceTree = "<group>"; };
 		2C94629C3244CC2A45D40609 /* BonePopoverDemoUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BonePopoverDemoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -103,6 +105,7 @@
 		3152C7088426B48BC8A11ABC = {
 			isa = PBXGroup;
 			children = (
+				02652EF4048B310E02097618 /* Assets.xcassets */,
 				2D4297F00EFD62683B929FE4 /* BonePopoverWindowTests */,
 				87337DD72C7AC852F5CCBF98 /* Packages */,
 				31C29CB144C7DFC7EFCAB2F6 /* Sources */,
@@ -170,6 +173,7 @@
 			buildConfigurationList = 2E5E64DA48581C55795853DB /* Build configuration list for PBXNativeTarget "BonePopoverDemo" */;
 			buildPhases = (
 				411C2582C21EFEB88FE2948C /* Sources */,
+				3E3D3ECBBFE7152509500E50 /* Resources */,
 				21BB9D36533D70F05F4C9A27 /* Frameworks */,
 			);
 			buildRules = (
@@ -239,6 +243,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		3E3D3ECBBFE7152509500E50 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1D6D5AF344F7CE82454EC3AE /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		328E79699395BCE239D4D6FF /* Sources */ = {

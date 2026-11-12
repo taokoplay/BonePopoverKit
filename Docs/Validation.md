@@ -296,3 +296,12 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - 按钮构建抽成 `makeActionButton(for:)`，初始化路径与增量路径共用同一份样式、图标、destructive 着色和关闭语义。
 - 测试：新增 `PopoverActionSheetBuilderTests` 2 项（无 actions 创建 + 竖排顺序/字体、`dismissesPopover` 与先关闭再回调）；核心回归 **83/83 通过**（`core-builder.log`）。
 - Demo 场景 2 改为增量写法；UI 用例 `testActionSheetUsesReaderDefaultSheetLayout` **1/1 通过**（`ui-builder.log`）。
+
+## Demo 首页布局与 App 图标
+
+- `DemoViewController` 改为 `UIViewController`：顶部常驻控制条（外观/动画分段控件 `style-control` / `motion-control`）、中间分组场景列表（常用弹窗 0-4、布局与保留区域 5-11、内容样式 12-13、独立窗口 14、Toast 15-17，每行带一句话说明）、底部常驻结果条（`demo-result`）。`demo-list`、`scene-N`、导航栏 `title-alignment` / `interaction-demo` / `toast-options` 均保持不变。
+- 新增 AppIcon（1024×1024，无 alpha）：深靛蓝→紫罗兰渐变、半透明玻璃底部面板、关闭按钮与列表行占位；接入 `Assets.xcassets`，XcodeGen 工程设置 `ASSETCATALOG_COMPILER_APPICON_NAME=AppIcon`；生成脚本 `Examples/BonePopoverDemo/Tools/AppIconRenderer.swift`。
+- 测试：`PopoverDemoUITests` **4/4**、`PopoverAlertButtonsUITests` **1/1**、`PopoverContentStyleUITests` **3/3** 通过（`ui-demo-layout.log`、`ui-content-style2.log`）。
+- 同步修正两处旧问题：`testLiveStyleChangesAndRestoresTheActionListLayout` 的标题左边距未计入关闭按钮（40 + 8），改为 `padding + 48`；`openScene` 的滚动次数 5 → 10（顶部控制条与底部结果条压缩了可见高度）。
+- 真机：iPhone 13 Pro（iOS 26.5，`00008110-000620DC0AA2801E`），Team `2PX9496FD6` 签名构建 → `devicectl install` → `devicectl process launch` 成功（进程 7619），`Assets.car` 含 `AppIcon`，`CFBundleIconName=AppIcon`。
+- 说明：本机未配置图像生成模型（Settings → Models → Image generation model 为空），图标由 CoreGraphics 脚本绘制，不是生成模型产物。

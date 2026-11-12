@@ -23,7 +23,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             || activity?.activityType == WindowDemoViewController.activityType
         let root: UIViewController = opensWindowDemo
             ? WindowDemoViewController(isAdditionalScene: activity?.userInfo?["secondary"] as? Bool ?? false)
-            : DemoViewController(style: .insetGrouped)
+            : DemoViewController()
         window.rootViewController = UINavigationController(rootViewController: root)
         window.accessibilityIdentifier = "window-business-main"
         self.window = window
@@ -52,8 +52,45 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 }
 
-final class DemoViewController: UITableViewController {
+final class DemoViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     private let scenes = ["居中确认框", "输入框与键盘", "底部操作列表", "顶部通知", "侧边面板", "长内容滚动", "注入竖向折叠", "注入横向折叠", "自定义 Alert 尺寸", "Alert 长内容上限", "Alert 竖排按钮", "Alert 窄空间", "自定义字体与间距", "即时调整内容样式", "独立 Window 与多 Scene", "Toast 顶部长条", "Toast 底部长条", "Toast 中间方块"]
+    /// 每个场景一句话说明，直接告诉使用者这里该看什么。
+    private let sceneDetails = [
+        "标题、正文、确认/取消，可调对齐与按钮排列",
+        "自动聚焦、键盘避让，回调带输入文本",
+        "阅读器默认样式，支持逐个 addButton",
+        "顶部滑入，遮罩 0.12，不自动消失",
+        "贴 trailing，高度填满可用区",
+        "内容超出可用高度时内部滚动",
+        "竖向保留区避让，不跨铰链",
+        "横向保留区避让，两侧各自可点",
+        "horizontalMargin / maximumSize 自定义",
+        "maximumHeight 600 时内部滚动",
+        "buttonLayout = .vertical，确认在上",
+        "窄空间（180 点）自动转竖排",
+        "contentStyle 全套字体与间距",
+        "显示期间切换字号、间距与对齐",
+        "show(over:) / show(in:) 多窗口与 Scene",
+        "顶部长条，2 秒自动关，允许穿透",
+        "底部长条，可点底层页面",
+        "中间方块，160–280 点随内容增大"
+    ]
+    private let sceneIcons = [
+        "rectangle.center.inset.filled", "keyboard", "list.bullet.rectangle",
+        "rectangle.topthird.inset.filled", "sidebar.right", "scroll",
+        "rectangle.split.2x1", "rectangle.split.1x2", "arrow.left.and.right",
+        "arrow.up.and.down", "rectangle.grid.1x2", "arrow.down.right.and.arrow.up.left",
+        "textformat.size", "slider.horizontal.3", "macwindow.on.rectangle",
+        "rectangle.topthird.inset.filled", "rectangle.bottomthird.inset.filled", "square.inset.filled"
+    ]
+    /// 场景分组；scene-N 编号保持不变，只调整展示顺序。
+    private let groups: [(title: String, indices: [Int])] = [
+        ("常用弹窗", [0, 1, 2, 3, 4]),
+        ("布局与保留区域", [5, 6, 7, 8, 9, 10, 11]),
+        ("内容样式", [12, 13]),
+        ("独立窗口", [14]),
+        ("Toast", [15, 16, 17])
+    ]
     private let styles = ["自动", "经典", "毛玻璃", "液态玻璃", "品牌色"]
     private let motions = ["场景默认", "淡入淡出", "缩放", "弹簧", "自定义"]
     private var selectedStyle = 0
@@ -65,50 +102,159 @@ final class DemoViewController: UITableViewController {
     private weak var currentPopover: BonePopoverView?
     private var lastResult = "选择一个场景，体验弹窗。"
 
+    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private let styleControl = UISegmentedControl(items: ["自动", "经典", "毛玻璃", "液态玻璃", "品牌色"])
+    private let motionControl = UISegmentedControl(items: ["默认", "淡入", "缩放", "弹簧", "自定义"])
+    private let resultLabel = UILabel()
+
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "BonePopoverKit"
         navigationController?.navigationBar.prefersLargeTitles = true
-        tableView.accessibilityIdentifier = "demo-list"
+        view.backgroundColor = .systemBackground
+        let header = makeControlHeader()
+        let resultBar = makeResultBar()
+        configureTableView(below: header, above: resultBar)
         updateTitleAlignmentMenu()
         updateToastMenu()
     }
 
-    override func numberOfSections(in tableView: UITableView) -> Int { 3 }
-    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        [scenes.count, styles.count, motions.count][section]
+    /// 常驻控制条：外观与动画不再混在场景列表里，改设置不用来回滚动。
+    private func makeControlHeader() -> UIView {
+        styleControl.selectedSegmentIndex = selectedStyle
+        styleControl.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            self.selectedStyle = self.styleControl.selectedSegmentIndex
+        }, for: .valueChanged)
+        styleControl.accessibilityIdentifier = "style-control"
+
+        motionControl.selectedSegmentIndex = selectedMotion
+        motionControl.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            self.selectedMotion = self.motionControl.selectedSegmentIndex
+        }, for: .valueChanged)
+        motionControl.accessibilityIdentifier = "motion-control"
+
+        let stack = UIStackView(arrangedSubviews: [
+            controlRow(title: "外观", control: styleControl),
+            controlRow(title: "动画", control: motionControl)
+        ])
+        stack.axis = .vertical
+        stack.spacing = 8
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let container = UIView()
+        container.backgroundColor = .secondarySystemBackground
+        container.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
+            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -8)
+        ])
+        view.addSubview(container)
+        container.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            container.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            container.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+        ])
+        return container
     }
-    override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        ["常用场景", "外观风格", "动画方式"][section]
+
+    private func controlRow(title: String, control: UISegmentedControl) -> UIView {
+        let label = UILabel()
+        label.text = title
+        label.font = .preferredFont(forTextStyle: .caption1)
+        label.textColor = .secondaryLabel
+        label.setContentHuggingPriority(.required, for: .horizontal)
+        let row = UIStackView(arrangedSubviews: [label, control])
+        row.spacing = 8
+        row.alignment = .center
+        return row
     }
-    override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-        switch section {
-        case 0: return lastResult
-        case 1: return "自动风格在 iOS 26 及以上使用系统玻璃。降低透明度开启时使用纯色背景。"
-        default: return "Duo 使用系统保留区域自动避让。注入场景用于演示和测试，不代替真实设备姿态测试。"
-        }
+
+    /// 底部常驻结果条：回调结果不用滚到列表底部才能看到。
+    private func makeResultBar() -> UIView {
+        let bar = UIView()
+        bar.backgroundColor = .secondarySystemBackground
+        let separator = UIView()
+        separator.backgroundColor = .separator
+        separator.translatesAutoresizingMaskIntoConstraints = false
+        resultLabel.font = .preferredFont(forTextStyle: .footnote)
+        resultLabel.textColor = .label
+        resultLabel.numberOfLines = 2
+        resultLabel.text = lastResult
+        resultLabel.accessibilityIdentifier = "demo-result"
+        resultLabel.translatesAutoresizingMaskIntoConstraints = false
+        bar.addSubview(separator)
+        bar.addSubview(resultLabel)
+        NSLayoutConstraint.activate([
+            separator.topAnchor.constraint(equalTo: bar.topAnchor),
+            separator.leadingAnchor.constraint(equalTo: bar.leadingAnchor),
+            separator.trailingAnchor.constraint(equalTo: bar.trailingAnchor),
+            separator.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale),
+            resultLabel.topAnchor.constraint(equalTo: bar.topAnchor, constant: 10),
+            resultLabel.leadingAnchor.constraint(equalTo: bar.leadingAnchor, constant: 16),
+            resultLabel.trailingAnchor.constraint(equalTo: bar.trailingAnchor, constant: -16),
+            resultLabel.bottomAnchor.constraint(equalTo: bar.bottomAnchor, constant: -10)
+        ])
+        view.addSubview(bar)
+        bar.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            bar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+        ])
+        return bar
     }
-    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-        var content = cell.defaultContentConfiguration()
-        content.text = [scenes, styles, motions][indexPath.section][indexPath.row]
-        if indexPath.section == 0 {
-            content.image = UIImage(systemName: ["rectangle.center.inset.filled", "keyboard", "list.bullet.rectangle", "rectangle.topthird.inset.filled", "sidebar.right", "scroll", "rectangle.split.2x1", "rectangle.split.1x2", "arrow.left.and.right", "arrow.up.and.down", "rectangle.split.1x2", "arrow.left.and.right", "textformat.size", "slider.horizontal.3", "macwindow.on.rectangle", "rectangle.topthird.inset.filled", "rectangle.bottomthird.inset.filled", "square.inset.filled"][indexPath.row])
-            cell.accessoryType = .disclosureIndicator
-            cell.accessibilityIdentifier = "scene-\(indexPath.row)"
-        } else {
-            let selected = indexPath.section == 1 ? selectedStyle : selectedMotion
-            cell.accessoryType = indexPath.row == selected ? .checkmark : .none
-        }
+
+    private func configureTableView(below header: UIView, above resultBar: UIView) {
+        tableView.accessibilityIdentifier = "demo-list"
+        tableView.dataSource = self
+        tableView.delegate = self
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "scene")
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        view.insertSubview(tableView, belowSubview: resultBar)
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: header.bottomAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: resultBar.topAnchor)
+        ])
+    }
+
+
+    func numberOfSections(in tableView: UITableView) -> Int { groups.count }
+
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        groups[section].indices.count
+    }
+
+    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        groups[section].title
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let index = groups[indexPath.section].indices[indexPath.row]
+        let cell = tableView.dequeueReusableCell(withIdentifier: "scene", for: indexPath)
+        var content = UIListContentConfiguration.subtitleCell()
+        content.text = scenes[index]
+        content.secondaryText = sceneDetails[index]
+        content.secondaryTextProperties.color = .secondaryLabel
+        content.image = UIImage(systemName: sceneIcons[index])
+        content.imageProperties.tintColor = .tintColor
         cell.contentConfiguration = content
+        cell.accessoryType = .disclosureIndicator
+        cell.accessibilityIdentifier = "scene-\(index)"
         return cell
     }
-    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        if indexPath.section == 1 { selectedStyle = indexPath.row; tableView.reloadData(); return }
-        if indexPath.section == 2 { selectedMotion = indexPath.row; tableView.reloadData(); return }
-        showScene(indexPath.row)
+        showScene(groups[indexPath.section].indices[indexPath.row])
     }
+
 
     private func updateTitleAlignmentMenu() {
         let options: [(String, NSTextAlignment?)] = [("预设默认", nil), ("左对齐", .left), ("居中", .center), ("右对齐", .right)]
@@ -337,6 +483,9 @@ final class DemoViewController: UITableViewController {
 
     private func record(_ result: String) {
         lastResult = result
-        tableView.reloadData()
+        resultLabel.text = result
+        // 轻提示一下，确认回调确实触发。
+        resultLabel.alpha = 0.35
+        UIView.animate(withDuration: 0.25) { self.resultLabel.alpha = 1 }
     }
 }

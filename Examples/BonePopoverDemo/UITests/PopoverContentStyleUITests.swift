@@ -6,7 +6,8 @@ final class PopoverContentStyleUITests: XCTestCase {
         let table = app.tables["demo-list"]
         XCTAssertTrue(table.waitForExistence(timeout: 10))
         let row = app.cells["scene-\(index)"]
-        for _ in 0..<5 {
+        // 顶部控制条与底部结果条压缩了可见区域，多滚动几次保证目标行完整可见。
+        for _ in 0..<10 {
             if row.isHittable { break }
             table.swipeUp()
         }
@@ -70,7 +71,8 @@ final class PopoverContentStyleUITests: XCTestCase {
                 abs(title.frame.minY - content.frame.minY - padding) <= 1
             }, object: nil)
             XCTAssertEqual(XCTWaiter.wait(for: [layoutChanged], timeout: 5), .completed)
-            XCTAssertEqual(title.frame.minX - content.frame.minX, padding, accuracy: 1)
+            // 操作列表标题左侧固定有 40 点关闭按钮 + 8 点间距（showsCloseButton 默认开）。
+            XCTAssertEqual(title.frame.minX - content.frame.minX, padding + 48, accuracy: 1)
             XCTAssertEqual(content.frame.maxX - title.frame.maxX, padding, accuracy: 1)
             XCTAssertEqual(message.frame.minY - title.frame.maxY, expanded ? 20 : 14, accuracy: 1)
             XCTAssertEqual(toggle.frame.minY - message.frame.maxY, expanded ? 28 : 14, accuracy: 1)

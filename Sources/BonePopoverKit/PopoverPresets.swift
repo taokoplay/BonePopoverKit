@@ -514,29 +514,59 @@ func configurePopoverLabel(_ label: UILabel) {
     label.setContentCompressionResistancePriority(.required, for: .vertical)
 }
 
-/// 关闭按钮（向下箭头）的统一外观：iOS 26+ 液态玻璃圆圈，早期系统为标题色 8% 半透明圆圈。
-/// 操作列表与抽屉共用，保证两处视觉一致；`closeButtonImage` 可替换图标。
+/// 圆形按钮的统一外观：iOS 26+ 液态玻璃胶囊，早期系统为标题色 8% 半透明药丸。
+/// 传 `title` 时显示文字（如“确定”），不传时显示图标（关闭箭头）；操作列表与抽屉共用。
+/// 玻璃样式会忽略 `titleLabel.font`，文字字体改由 `titleTextAttributesTransformer` 固定。
 @MainActor
-func applyPopoverCloseButtonStyle(_ button: UIButton, style: PopoverContentStyle) {
-    let image = style.closeButtonImage ?? UIImage(
+func applyPopoverCircleButtonStyle(_ button: UIButton, style: PopoverContentStyle,
+                                   title: String? = nil, image: UIImage? = nil) {
+    let symbol = image ?? style.closeButtonImage ?? UIImage(
         systemName: "chevron.down",
         withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .medium))
+    let font = UIFont.systemFont(ofSize: 13, weight: .semibold)
     #if compiler(>=6.2)
     if #available(iOS 26.0, *) {
         var configuration = UIButton.Configuration.glass()
         configuration.cornerStyle = .capsule
-        configuration.image = image
+        // 文字按钮左右留白收窄，让“确定”这类两字标题接近左侧圆圈按钮的直径。
+        let horizontalInset: CGFloat = title == nil ? 6 : 8
+        configuration.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: horizontalInset,
+                                                             bottom: 6, trailing: horizontalInset)
+        configuration.title = title
+        configuration.image = title == nil ? symbol : nil
+        configuration.baseForegroundColor = style.titleColor
+        configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = font
+            return outgoing
+        }
         button.configuration = configuration
         button.tintColor = style.titleColor
         return
     }
     #endif
     button.configuration = nil
-    button.setImage(image, for: .normal)
-    button.tintColor = style.titleColor
+    if let title {
+        button.setImage(nil, for: .normal)
+        button.setTitle(title, for: .normal)
+        button.setTitleColor(style.titleColor, for: .normal)
+        button.titleLabel?.font = font
+        button.titleLabel?.adjustsFontSizeToFitWidth = true
+        button.titleLabel?.minimumScaleFactor = 0.8
+    } else {
+        button.setTitle(nil, for: .normal)
+        button.setImage(symbol, for: .normal)
+        button.tintColor = style.titleColor
+    }
     button.backgroundColor = style.titleColor.withAlphaComponent(0.08)
     button.layer.cornerRadius = style.resolvedCloseButtonSize / 2
     button.clipsToBounds = true
+}
+
+/// 关闭按钮的快捷入口：圆形 + 向下箭头。
+@MainActor
+func applyPopoverCloseButtonStyle(_ button: UIButton, style: PopoverContentStyle) {
+    applyPopoverCircleButtonStyle(button, style: style)
 }
 
 func configurePopoverButton(_ button: UIButton, title: String, prominent: Bool) {

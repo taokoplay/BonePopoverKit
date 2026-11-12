@@ -182,6 +182,29 @@ final class PopoverDrawerSheetTests: XCTestCase {
         XCTAssertEqual(submitted, ["平移"])
     }
 
+    /// 右侧按钮沿用左侧关闭按钮的外观：同一高度、同一胶囊玻璃样式，只把图标换成文字。
+    @MainActor
+    func testConfirmButtonSharesCloseButtonStyle() throws {
+        let sheet = drawer()
+        sheet.showsConfirmButton = true
+        let (window, _, _) = try present(sheet)
+        defer { sheet.dismissPopover(animated: false); window.isHidden = true }
+
+        let close = try XCTUnwrap(control("drawer-close", in: sheet.baseView) as? UIButton)
+        let confirm = try XCTUnwrap(control("drawer-confirm", in: sheet.baseView) as? UIButton)
+        print("button-frames close=\(close.frame) confirm=\(confirm.frame)")
+
+        XCTAssertEqual(confirm.frame.height, close.frame.height, accuracy: 0.5, "两个按钮高度必须一致")
+        XCTAssertGreaterThanOrEqual(confirm.frame.width, close.frame.width - 0.5, "文字按钮不应比关闭按钮更窄")
+        XCTAssertLessThanOrEqual(confirm.frame.width - confirm.frame.height, 14, "两字标题应接近圆形，与左侧按钮直径相当")
+        if #available(iOS 26.0, *) {
+            XCTAssertEqual(confirm.configuration?.cornerStyle, close.configuration?.cornerStyle,
+                           "确认按钮应与关闭按钮同为胶囊玻璃样式")
+        }
+        XCTAssertNil(confirm.configuration?.image, "确认按钮的内容是文字")
+        XCTAssertEqual(confirm.configuration?.title ?? confirm.title(for: .normal), "确定")
+    }
+
     /// 行背景色与分组圆角：默认次级背景，首行圆上两角、末行圆下两角；改配置后立即生效。
     @MainActor
     func testRowBackgroundColorAndGroupedCorners() throws {

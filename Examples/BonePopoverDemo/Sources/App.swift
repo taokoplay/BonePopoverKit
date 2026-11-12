@@ -109,6 +109,8 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
     private let motionControl = UISegmentedControl(items: ["默认", "淡入", "缩放", "弹簧", "自定义"])
     private let backdropControl = UISegmentedControl(items: ["预设", "显示遮罩", "隐藏遮罩"])
     private let penetrationControl = UISegmentedControl(items: ["预设", "允许穿透", "拦截触摸"])
+    /// `--demo-scene` 指定的场景号，等首页真正显示后再弹。
+    private var pendingLaunchScene: Int?
     private let resultLabel = UILabel()
 
     override func viewDidLoad() {
@@ -121,6 +123,15 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         configureTableView(below: header, above: resultBar)
         updateTitleAlignmentMenu()
         updateToastMenu()
+        prepareLaunchScene()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // 场景必须等视图进入窗口后再弹，否则宿主找不到可用的容器。
+        guard let scene = pendingLaunchScene else { return }
+        pendingLaunchScene = nil
+        showScene(scene)
     }
 
     /// 常驻控制条：外观与动画不再混在场景列表里，改设置不用来回滚动。
@@ -345,6 +356,16 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         default: return PopoverAppearance()
         }
     }
+
+    /// 截图与排查用：`--demo-scene 18` 启动后在首页出现时直接打开指定场景。
+    private func prepareLaunchScene() {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let flag = arguments.firstIndex(of: "--demo-scene"),
+              arguments.indices.contains(flag + 1),
+              let index = Int(arguments[flag + 1]) else { return }
+        pendingLaunchScene = index
+    }
+
 
     private func showScene(_ index: Int) {
         if let toast = currentPopover as? BoneToastView {

@@ -129,6 +129,9 @@ open class BoneDrawerSheetView: BonePopoverView {
     private let typographyPlaceholder = UILabel()
     private let confirmButton = UIButton(type: .system)
     private let cancelButton = UIButton(type: .system)
+    /// 标题行两个按钮共用的尺寸约束，供 `contentStyle.closeButtonSize` 变化时同步。
+    private var cancelSizeConstraints: [NSLayoutConstraint] = []
+    private var confirmSizeConstraints: [NSLayoutConstraint] = []
 
     /// 创建抽屉；分区与行通过 `addButton(text:value:style:inSection:)` 添加。
     public init(title: String) {
@@ -208,10 +211,14 @@ open class BoneDrawerSheetView: BonePopoverView {
     open override func applyContentStyle() {
         guard isViewLoaded else { return }
         let style = configuration.contentStyle
+        // 标题排版复用共享逻辑；两个圆形按钮不参与，避免按钮字体与内边距被通用样式覆盖。
         applyPopoverTypography(style, title: titleLabel, message: typographyPlaceholder,
-                               buttons: [confirmButton, cancelButton], traits: traitCollection)
+                               buttons: [], traits: traitCollection)
         contentStack.directionalLayoutMargins = style.resolvedContentInsets
         applyPopoverCloseButtonStyle(cancelButton, style: style)
+        applyPopoverCircleButtonStyle(confirmButton, style: style, title: resolvedConfirmTitle)
+        updateHeaderButtonSizes(style.resolvedCloseButtonSize)
+        cancelButton.accessibilityLabel = resolvedCloseLabel
         rebuildRows()
     }
 
@@ -260,14 +267,21 @@ open class BoneDrawerSheetView: BonePopoverView {
         header.addSubview(cancelButton)
 
         confirmButton.translatesAutoresizingMaskIntoConstraints = false
-        var confirmConfig = UIButton.Configuration.tinted()
-        confirmConfig.title = resolvedConfirmTitle
-        confirmConfig.cornerStyle = .capsule
-        confirmConfig.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12)
-        confirmButton.configuration = confirmConfig
-        confirmButton.configuration?.baseForegroundColor = sheetConfig.highlightColor
+        // 与左侧关闭按钮同一套圆形/玻璃外观，只是内容是文字。
+        applyPopoverCircleButtonStyle(confirmButton, style: configuration.contentStyle,
+                                      title: resolvedConfirmTitle)
         header.addSubview(confirmButton)
 
+        // 两个按钮共用同一尺寸常量，`contentStyle.closeButtonSize` 变化时一起更新。
+        let size = configuration.contentStyle.resolvedCloseButtonSize
+        cancelSizeConstraints = [
+            cancelButton.widthAnchor.constraint(equalToConstant: size),
+            cancelButton.heightAnchor.constraint(equalToConstant: size)
+        ]
+        confirmSizeConstraints = [
+            confirmButton.widthAnchor.constraint(greaterThanOrEqualToConstant: size),
+            confirmButton.heightAnchor.constraint(equalToConstant: size)
+        ]
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: header.topAnchor, constant: 12),
             titleLabel.bottomAnchor.constraint(equalTo: header.bottomAnchor, constant: -12),
@@ -275,13 +289,20 @@ open class BoneDrawerSheetView: BonePopoverView {
             titleLabel.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -56),
             cancelButton.topAnchor.constraint(equalTo: header.topAnchor),
             cancelButton.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 8),
-            cancelButton.widthAnchor.constraint(equalToConstant: configuration.contentStyle.resolvedCloseButtonSize),
-            cancelButton.heightAnchor.constraint(equalToConstant: configuration.contentStyle.resolvedCloseButtonSize),
-            confirmButton.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -12),
-            confirmButton.centerYAnchor.constraint(equalTo: cancelButton.centerYAnchor),
-            confirmButton.heightAnchor.constraint(equalToConstant: 30)
-        ])
+            confirmButton.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -8),
+            confirmButton.centerYAnchor.constraint(equalTo: cancelButton.centerYAnchor)
+        ] + cancelSizeConstraints + confirmSizeConstraints)
         return header
+    }
+
+    /// 关闭按钮与右侧按钮保持同一尺寸与圆角；`contentStyle.closeButtonSize` 改变后同步。
+    private func updateHeaderButtonSizes(_ size: CGFloat) {
+        for constraint in cancelSizeConstraints + confirmSizeConstraints
+        where constraint.constant != size {
+            constraint.constant = size
+        }
+        cancelButton.layer.cornerRadius = size / 2
+        confirmButton.layer.cornerRadius = size / 2
     }
 
     /// 右侧按钮默认隐藏；只有显式打开 `showsConfirmButton` 或接管点击时才出现。
@@ -478,7 +499,9 @@ open class BoneDrawerSheetView: BonePopoverView {
 
     private func applyButtonTitles() {
         guard isViewLoaded else { return }
-        confirmButton.configuration?.title = resolvedConfirmTitle
+        applyPopoverCircleButtonStyle(confirmButton, style: configuration.contentStyle,
+                                      title: resolvedConfirmTitle)
+        applyPopoverCircleButtonStyle(cancelButton, style: configuration.contentStyle)
         cancelButton.accessibilityLabel = resolvedCloseLabel
         invalidatePopoverLayout()
     }

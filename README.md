@@ -97,6 +97,8 @@ drawer.show(from: self)
 
 操作列表默认在标题左侧显示向下箭头关闭按钮（阅读器默认头部，40 × 40 点命中区，辅助功能标识 `popover-close`），标题居中；`showsCloseButton = false` 可隐藏，`closeButton` 可定制图标与辅助功能属性。
 
+抽屉头部与阅读器一致：左侧关闭按钮、右侧“确定”按钮**默认隐藏**（`showsConfirmButton = true` 才出现）。两个按钮共用同一套圆圈/玻璃样式，确定按钮只是把图标换成文字，尺寸随 `contentStyle.closeButtonSize` 一起变化。
+
 内置文案由各组件自己管，默认都是原文字：`alert.confirmTitle` / `alert.cancelTitle`（默认“确认”“取消”）、`sheet.cancelTitle`（默认取初始化参数）、`sheet.closeAccessibilityLabel`（默认“关闭”）、`toast.typeDescriptions`（默认“成功”“失败”“提示”“加载中”）、`popover.backdropAccessibilityLabel`（默认 `NSLocalizedString("Dismiss")`）。主题与动画同样可选：`configuration.interfaceStyle` 默认 `.unspecified` 跟随宿主，设为 `.light` / `.dark` 可固定弹层外观；`PopoverAnimation.scale(0.8)` 可调整缩放幅度，`.scale` 仍是 0.92。与阅读器旧基类的逐项对照见 [阅读器对照](Docs/ReaderParity.md)。
 
 ## Toast 提示

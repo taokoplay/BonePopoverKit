@@ -350,3 +350,13 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - 关闭按钮外观抽成共用实现 `applyPopoverCloseButtonStyle(_:style:)`：操作列表与抽屉同一套观感（12 点 `chevron.down`、iOS 26+ 液态玻璃圆圈、早期标题色 8% 圆圈），尺寸取 `contentStyle.resolvedCloseButtonSize`，图标可被 `contentStyle.closeButtonImage` 覆盖。
 - 抽屉头部由 `xmark` 改为该向下箭头，位置仍在左侧；`applyContentStyle` 时同步刷新外观。
 - 测试：抽屉用例（含新增“关闭按钮应有箭头图标”断言）与预设布局用例 **14/14 通过**（`drawer-closeicon2.log`），核心 **92/92**（`core-drawer8.log`），Demo UI 抽屉用例 **1/1**（`ui-drawer10.log`）。
+
+## 抽屉“确定”按钮沿用左侧关闭按钮样式
+
+- 外观抽成通用实现 `applyPopoverCircleButtonStyle(_:style:title:image:)`：传 `title` 显示文字（如“确定”），不传显示图标（关闭箭头）；关闭按钮的 `applyPopoverCloseButtonStyle` 只是它的图标分支。
+- 两个按钮共用尺寸常量：高度都取 `contentStyle.resolvedCloseButtonSize`（默认 40），圆角取高度一半，`contentStyle.closeButtonSize` 变化时一起同步（新增 `updateHeaderButtonSizes`）。
+- 玻璃样式会丢弃 `titleLabel.font`，文字字体改由 `configuration.titleTextAttributesTransformer` 固定为 13 点 semibold；文字态左右内边距收窄到 8 点，两字标题渲染宽度接近左侧圆圈直径。
+- 标题排版不再把两个圆形按钮交给 `applyPopoverTypography`（它会重置按钮字体与内边距），只作用于标题与占位正文。
+- 新增用例 `testConfirmButtonSharesCloseButtonStyle`：同一界面下实测关闭按钮 `40×40`、确定按钮 `42×40`，高度完全一致、`cornerStyle` 相同、确定按钮无图标且标题为“确定”。
+- Demo 增加 `--demo-scene <n>` 启动参数（`DemoViewController.viewDidAppear` 中首次呈现），方便截图与排查时直接打开指定场景。
+- 测试：核心 **93/93 通过**（`core-confirmcircle.log`），Demo UI 用例 **5/5 通过**（`ui-drawer14.log`）。

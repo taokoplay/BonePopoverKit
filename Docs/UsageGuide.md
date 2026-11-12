@@ -245,7 +245,7 @@ drawer.show(from: presenter)
 - 标题相同即同一分区，第二个参数只决定新行是否默认选中；有选择型分区时才出现“确定”按钮，`selectAction` 在点“确定”后回调。
 - `sheetConfig` 可调 `openSectionTitle`、`sectionHeight`、`fontSize`、`cellHeight`、`highlightColor`、`textAlignment`，以及颜色相关：`cellBackgroundColor`（行背景，默认 `.secondarySystemBackground`）、`cellCornerRadius`（分组首尾行圆角，默认 10 点）、`horizontalInset`（行背景距面板边缘，默认 16 点）、`cellSeparatorColor`（行间分隔线，默认系统分隔色）。
 - 面板底色由 `configuration.appearance.backgroundColor` 控制（`.bottomSheet` 预设为 `systemBackground`），与行背景相互独立。
-- 头部布局与阅读器一致：标题居中，**左侧关闭按钮**（与操作列表相同的向下箭头，iOS 26+ 为液态玻璃圆圈，可用 `contentStyle.closeButtonImage` / `closeButtonSize` 换图标与尺寸）、右侧自定义按钮。**右侧按钮默认隐藏**，需要统一提交时再打开 `showsConfirmButton`。
+- 头部布局与阅读器一致：标题居中，**左侧关闭按钮**（与操作列表相同的向下箭头，iOS 26+ 为液态玻璃圆圈，可用 `contentStyle.closeButtonImage` / `closeButtonSize` 换图标与尺寸）、**右侧确定按钮沿用同一套圆圈外观**（同高度、同胶囊圆角、同底色，只是内容从图标换成文字），**右侧按钮默认隐藏**，需要统一提交时再打开 `showsConfirmButton`。
 - 两种取结果方式：
   - **多选（或单选也要统一提交）**：`drawer.showsConfirmButton = true`，点右侧按钮统一提交，`selectAction` 回传全部选中项并关闭；
   - **单选/立即执行**：用 `.normal("")` 行加 `callback`，点行即回调并关闭，右侧按钮保持隐藏（原实现的单选用法）。

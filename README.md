@@ -1,6 +1,6 @@
 # BonePopoverKit
 
-BonePopoverKit 是面向 iOS 15+ 的 UIKit 弹窗组件，通过 Swift Package 集成，无第三方依赖。提供确认框、输入框、操作列表、Toast 和自定义内容，支持页面内展示、独立 Window、导航、液态玻璃、动画与触摸穿透。
+BonePopoverKit 是面向 iOS 15+ 的 UIKit 弹窗组件，通过 Swift Package 集成，无第三方依赖。提供确认框、输入框、操作列表、抽屉式列表、Toast 和自定义内容，支持页面内展示、独立 Window、导航、液态玻璃、动画与触摸穿透。
 
 内容样式、材质外观、布局、动画和关闭交互分别配置，可在显示期间调整。通过可继承的 `BonePopoverView` 和内容容器 `baseView` 构建业务弹窗，组件负责展示、布局和关闭生命周期。
 
@@ -78,6 +78,17 @@ sheet.addButton("分享", image: UIImage(systemName: "square.and.arrow.up")) { s
 sheet.addButton("刷新状态", dismissesPopover: false) { refresh() }
 sheet.addButton("删除", role: .destructive) { delete() }
 sheet.show(from: self)
+```
+
+需要「标题 + 抓手 + 分组列表」的抽屉时用 `BoneDrawerSheetView`（默认单选，可切多选）：
+
+```swift
+let drawer = BoneDrawerSheetView(title: "阅读设置", sections: [
+    .init(title: "翻页", items: [.init("平移"), .init("仿真"), .init("上下")]),
+    .init(title: "主题", items: [.init("浅色"), .init("深色")])
+])
+drawer.onSelect = { item in print(item.title) }
+drawer.show(from: self)
 ```
 
 操作列表默认在标题左侧显示向下箭头关闭按钮（阅读器默认头部，40 × 40 点命中区，辅助功能标识 `popover-close`），标题居中；`showsCloseButton = false` 可隐藏，`closeButton` 可定制图标与辅助功能属性。
@@ -300,7 +311,7 @@ popover.hidden { /* 已移除后执行；重复关闭请求的 completion 各执
 
 ## 示例与测试
 
-直接打开 `Examples/BonePopoverDemo/BonePopoverDemo.xcodeproj`，选择 iPhone / iPad / Duo 模拟器运行。示例支持 5 种外观、5 种动画选择，以及 18 个场景，含运行时切换风格、注入横/竖折叠区域、自定义 Alert 尺寸、长内容上限、竖排按钮、窄空间回退、自定义字体与间距、即时调整内容样式、多窗口展示和三种 Toast。导航栏“标题对齐”菜单可选择左对齐、居中、右对齐，再打开确认框或操作列表预览。
+直接打开 `Examples/BonePopoverDemo/BonePopoverDemo.xcodeproj`，选择 iPhone / iPad / Duo 模拟器运行。首页顶部常驻“外观 / 动画 / 遮罩 / 交互”四行控制项，中间是按用途分组的场景列表（每行带一句说明），底部常驻最近一次回调结果。共 19 个场景，含运行时切换风格、注入横/竖折叠区域、自定义 Alert 尺寸、长内容上限、竖排按钮、窄空间回退、自定义字体与间距、即时调整内容样式、多窗口展示、三种 Toast 和抽屉式列表。导航栏“标题对齐”菜单可选择预设默认、左、中、右，再打开确认框或操作列表预览。
 
 导航栏“关闭交互”打开交互体验页，提供背景/外部点击/穿透开关、自动/四向/单向滑动选择、50/100/200 点阈值，以及底层点击计数。菜单“交互方案”可快速验证透明外部关闭、穿透并关闭、仅左滑等组合。
 

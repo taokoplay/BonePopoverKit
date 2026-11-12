@@ -515,7 +515,7 @@ open class BoneActionSheetView: BonePopoverView {
 }
 
 @MainActor
-private func makePopoverStack() -> UIStackView {
+func makePopoverStack() -> UIStackView {
     let stack = UIStackView()
     stack.axis = .vertical
     stack.alignment = .fill
@@ -527,13 +527,13 @@ private func makePopoverStack() -> UIStackView {
 }
 
 @MainActor
-private func configurePopoverLabel(_ label: UILabel) {
+func configurePopoverLabel(_ label: UILabel) {
     label.numberOfLines = 0
     label.setContentCompressionResistancePriority(.required, for: .vertical)
 }
 
 @MainActor
-private func configurePopoverButton(_ button: UIButton, title: String, prominent: Bool) {
+func configurePopoverButton(_ button: UIButton, title: String, prominent: Bool) {
     var configuration = prominent ? UIButton.Configuration.filled() : .tinted()
     configuration.title = title
     configuration.cornerStyle = .medium
@@ -544,7 +544,7 @@ private func configurePopoverButton(_ button: UIButton, title: String, prominent
 
 /// 共用的文字样式应用逻辑：只更新样式字段，保留按钮已有标题、图标和视觉角色。
 @MainActor
-private func applyPopoverTypography(_ style: PopoverContentStyle, title: UILabel, message: UILabel,
+func applyPopoverTypography(_ style: PopoverContentStyle, title: UILabel, message: UILabel,
                                     buttons: [UIButton], traits: UITraitCollection) {
     title.font = style.font(style.titleFont, textStyle: .headline, traits: traits)
     title.adjustsFontForContentSizeCategory = style.adjustsFontForContentSizeCategory

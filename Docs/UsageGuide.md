@@ -220,7 +220,30 @@ sheet.show(from: presenter)
 
 <a id="toast"></a>
 
-### 3.4 Toast 提示
+### 3.4 抽屉式列表
+
+阅读器那种「标题 + 抓手 + 分组列表」的底部抽屉，直接用 `BoneDrawerSheetView`：
+
+```swift
+let drawer = BoneDrawerSheetView(title: "阅读设置", sections: [
+    .init(title: "翻页", items: [
+        .init("平移", detail: "左右平移翻页", image: UIImage(systemName: "arrow.left.and.right")),
+        .init("仿真", detail: "纸张卷曲效果", image: UIImage(systemName: "book")),
+        .init("上下", detail: "纵向滚动翻页", image: UIImage(systemName: "arrow.up.and.down"))
+    ]),
+    .init(title: "主题", items: [.init("浅色"), .init("深色"), .init("护眼")])
+])
+drawer.setSelected(indices: [0])          // 扁平索引，跨分组连续编号
+drawer.onSelect = { item in print(item.title) }
+drawer.show(from: presenter)
+```
+
+- 默认 `.single`：点击即选中并关闭；`.multiple` 保留弹窗、显示勾选与“完成”按钮，由 `onConfirm` 回传全部选中项；`.none` 只回调不记录选中。
+- `dismissesOnSelect = false` 可让单选也保留弹窗；`showsCancel: false` 可去掉取消按钮。
+- 表面沿用 `.bottomSheet`（仅圆顶部两角、无阴影、0.15 秒滑入），默认显示抓手，标题居中；行内字体跟随 `contentStyle.buttonFont` / `messageFont`。
+- 行使用 `isDestructive` 时文字为红色，只是视觉语义，不自动二次确认。
+
+### 3.5 Toast 提示
 
 `BoneToastView` 支持顶部长条、底部长条和居中方块，以及成功、失败、提示、加载中四种类型。类型与布局独立组合；**四种类型均默认显示 2 秒，包括加载中**。默认无遮罩、允许外部触摸穿透，不会因点击底层页面自动消失。独立 Window 模式默认使用 `.preserveCurrent` 保留当前 key Window。
 

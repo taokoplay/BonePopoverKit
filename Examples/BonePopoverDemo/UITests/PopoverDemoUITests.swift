@@ -139,6 +139,28 @@ final class PopoverDemoUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
     }
 
+    /// 抽屉场景：分组行可见，点击行回传结果并关闭；遮罩控制存在。
+    @MainActor
+    func testDrawerSceneSelectsRowAndReportsResult() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo-home"]
+        app.launch()
+        XCTAssertTrue(app.segmentedControls["backdrop-control"].waitForExistence(timeout: 10))
+        let table = app.tables["demo-list"]
+        let row = app.cells["scene-18"]
+        for _ in 0..<3 where !row.isHittable { table.swipeUp() }
+        XCTAssertTrue(row.isHittable)
+        row.tap()
+        XCTAssertTrue(app.otherElements["popover-ready"].waitForExistence(timeout: 5))
+        let option = app.buttons["drawer-row-1"]
+        XCTAssertTrue(option.waitForExistence(timeout: 5))
+        capture("drawer-sheet")
+        option.tap()
+        XCTAssertTrue(app.staticTexts["demo-result"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["demo-result"].label, "抽屉：仿真")
+        XCTAssertTrue(app.cells["scene-18"].waitForExistence(timeout: 5))
+    }
+
     @MainActor
     private func capture(_ name: String) {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())

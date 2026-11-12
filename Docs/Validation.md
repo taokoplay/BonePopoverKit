@@ -305,3 +305,11 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - 同步修正两处旧问题：`testLiveStyleChangesAndRestoresTheActionListLayout` 的标题左边距未计入关闭按钮（40 + 8），改为 `padding + 48`；`openScene` 的滚动次数 5 → 10（顶部控制条与底部结果条压缩了可见高度）。
 - 真机：iPhone 13 Pro（iOS 26.5，`00008110-000620DC0AA2801E`），Team `2PX9496FD6` 签名构建 → `devicectl install` → `devicectl process launch` 成功（进程 7619），`Assets.car` 含 `AppIcon`，`CFBundleIconName=AppIcon`。
 - 说明：本机未配置图像生成模型（Settings → Models → Image generation model 为空），图标由 CoreGraphics 脚本绘制，不是生成模型产物。
+
+## 遮罩可见性复核、抽屉组件与首页行为控制
+
+- 复核「背景开启但看不到」：`PopoverHostView` 的遮罩层按 `showsBackdrop` 与 `appearance.backdropOpacity` 计算并渲染（`backdropOpacity` getter 会先看 `showsBackdrop`）。实际看不到是因为 `.bottomSheet` 预设设了 `showsBackdrop = false`（阅读器默认无遮罩），确认框等预设默认 0.32。新增回归测试 `testBackdropDimmingFollowsPresetAndShowsBackdrop`：确认框默认 0.32、`showsBackdrop = false` 后 0、重新开启回 0.32；操作列表预设 0、手动开启后 0.32。
+- 新增 `BoneDrawerSheetView`：标题 + 抓手 + 分组行；`.single`（点击即选中并关闭）、`.multiple`（保留弹窗、勾选、完成按钮、`onConfirm` 回传）、`.none`（仅回调）；`setSelected(indices:)` 用跨分组连续的扁平索引，`dismissesOnSelect`、`showsCancel`、`cancelTitle`/`confirmTitle` 支持运行期修改；行支持 `detail`、`image` 与 `isDestructive`（仅红色语义）。表面复用 `.bottomSheet`，默认显示抓手、标题居中。
+- 首页控制条由 2 行扩到 4 行：外观、动画、遮罩（预设/显示/隐藏）、交互（预设/允许穿透/拦截触摸）；展示前按选择写入 `configuration`，选「预设」时保持各预设默认。新增场景 18「抽屉式选择」，Demo 共 19 个场景。
+- 测试：核心 **86/86 通过**（`core-drawer.log`，新增抽屉单选/多选与遮罩 3 项）；Demo UI `testDrawerSceneSelectsRowAndReportsResult` **1/1 通过**（`ui-drawer.log`）。
+- 真机：iPhone 13 Pro（iOS 26.5），Team `2PX9496FD6` 构建成功 → `devicectl install` → `process launch` 成功。

@@ -53,7 +53,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 }
 
 final class DemoViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
-    private let scenes = ["居中确认框", "输入框与键盘", "底部操作列表", "顶部通知", "侧边面板", "长内容滚动", "注入竖向折叠", "注入横向折叠", "自定义 Alert 尺寸", "Alert 长内容上限", "Alert 竖排按钮", "Alert 窄空间", "自定义字体与间距", "即时调整内容样式", "独立 Window 与多 Scene", "Toast 顶部长条", "Toast 底部长条", "Toast 中间方块"]
+    private let scenes = ["居中确认框", "输入框与键盘", "底部操作列表", "顶部通知", "侧边面板", "长内容滚动", "注入竖向折叠", "注入横向折叠", "自定义 Alert 尺寸", "Alert 长内容上限", "Alert 竖排按钮", "Alert 窄空间", "自定义字体与间距", "即时调整内容样式", "独立 Window 与多 Scene", "Toast 顶部长条", "Toast 底部长条", "Toast 中间方块", "抽屉式选择"]
     /// 每个场景一句话说明，直接告诉使用者这里该看什么。
     private let sceneDetails = [
         "标题、正文、确认/取消，可调对齐与按钮排列",
@@ -73,7 +73,8 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         "show(over:) / show(in:) 多窗口与 Scene",
         "顶部长条，2 秒自动关，允许穿透",
         "底部长条，可点底层页面",
-        "中间方块，160–280 点随内容增大"
+        "中间方块，160–280 点随内容增大",
+        "阅读器式抽屉：分组列表、单选、带抓手"
     ]
     private let sceneIcons = [
         "rectangle.center.inset.filled", "keyboard", "list.bullet.rectangle",
@@ -81,11 +82,12 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         "rectangle.split.2x1", "rectangle.split.1x2", "arrow.left.and.right",
         "arrow.up.and.down", "rectangle.grid.1x2", "arrow.down.right.and.arrow.up.left",
         "textformat.size", "slider.horizontal.3", "macwindow.on.rectangle",
-        "rectangle.topthird.inset.filled", "rectangle.bottomthird.inset.filled", "square.inset.filled"
+        "rectangle.topthird.inset.filled", "rectangle.bottomthird.inset.filled", "square.inset.filled",
+        "list.bullet.below.rectangle"
     ]
     /// 场景分组；scene-N 编号保持不变，只调整展示顺序。
     private let groups: [(title: String, indices: [Int])] = [
-        ("常用弹窗", [0, 1, 2, 3, 4]),
+        ("常用弹窗", [0, 1, 2, 18, 3, 4]),
         ("布局与保留区域", [5, 6, 7, 8, 9, 10, 11]),
         ("内容样式", [12, 13]),
         ("独立窗口", [14]),
@@ -105,6 +107,8 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private let styleControl = UISegmentedControl(items: ["自动", "经典", "毛玻璃", "液态玻璃", "品牌色"])
     private let motionControl = UISegmentedControl(items: ["默认", "淡入", "缩放", "弹簧", "自定义"])
+    private let backdropControl = UISegmentedControl(items: ["预设", "显示遮罩", "隐藏遮罩"])
+    private let penetrationControl = UISegmentedControl(items: ["预设", "允许穿透", "拦截触摸"])
     private let resultLabel = UILabel()
 
     override func viewDidLoad() {
@@ -135,9 +139,16 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         }, for: .valueChanged)
         motionControl.accessibilityIdentifier = "motion-control"
 
+        backdropControl.selectedSegmentIndex = 0
+        backdropControl.accessibilityIdentifier = "backdrop-control"
+        penetrationControl.selectedSegmentIndex = 0
+        penetrationControl.accessibilityIdentifier = "penetration-control"
+
         let stack = UIStackView(arrangedSubviews: [
             controlRow(title: "外观", control: styleControl),
-            controlRow(title: "动画", control: motionControl)
+            controlRow(title: "动画", control: motionControl),
+            controlRow(title: "遮罩", control: backdropControl),
+            controlRow(title: "交互", control: penetrationControl)
         ])
         stack.axis = .vertical
         stack.spacing = 8
@@ -368,6 +379,22 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
                 self?.record("演示：已删除")
             }
             popover = sheet
+        case 18:
+            let drawer = BoneDrawerSheetView(title: "阅读设置", sections: [
+                .init(title: "翻页", items: [
+                    .init("平移", detail: "左右平移翻页", image: UIImage(systemName: "arrow.left.and.right")),
+                    .init("仿真", detail: "纸张卷曲效果", image: UIImage(systemName: "book")),
+                    .init("上下", detail: "纵向滚动翻页", image: UIImage(systemName: "arrow.up.and.down"))
+                ]),
+                .init(title: "主题", items: [
+                    .init("浅色", image: UIImage(systemName: "sun.max")),
+                    .init("深色", image: UIImage(systemName: "moon")),
+                    .init("护眼", image: UIImage(systemName: "leaf"))
+                ])
+            ])
+            drawer.setSelected(indices: [0])
+            drawer.onSelect = { [weak self] item in self?.record("抽屉：\(item.title)") }
+            popover = drawer
         case 12:
             let alert = BoneAlertView(title: "自定义字体与间距", message: "标题 22 点粗体，正文 15 点；内边距、段落和按钮间距统一设置。") {}
             var style = PopoverContentStyle()
@@ -446,6 +473,7 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
             toast.imageView.accessibilityIdentifier = "toast-image"
             toast.loadingIndicator.accessibilityIdentifier = "toast-loading"
         }
+        applyBehavior(to: popover)
         popover.baseView.accessibilityIdentifier = "popover-content"
         switch selectedMotion {
         case 1: popover.configuration.animation = .fade
@@ -463,6 +491,16 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         }
         // Present in the navigation controller so the overlay covers its bars as well.
         popover.show(from: navigationController ?? self)
+    }
+
+    /// 首页的遮罩/穿透选项；选「预设」时保持各预设自带默认值。
+    private func applyBehavior(to popover: BonePopoverView) {
+        if backdropControl.selectedSegmentIndex != 0 {
+            popover.configuration.showsBackdrop = backdropControl.selectedSegmentIndex == 1
+        }
+        if penetrationControl.selectedSegmentIndex != 0 {
+            popover.configuration.allowsEventPenetration = penetrationControl.selectedSegmentIndex == 1
+        }
     }
 
     private func toggleContentStyle() {

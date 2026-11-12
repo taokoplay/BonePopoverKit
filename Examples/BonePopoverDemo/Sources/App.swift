@@ -403,16 +403,28 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
             popover = sheet
         case 18:
             let drawer = BoneDrawerSheetView(title: "阅读设置")
-            drawer.addButton(text: "平移", value: "0", inSection: .singleSelect("翻页", true))
-            drawer.addButton(text: "仿真", value: "1", inSection: .singleSelect("翻页", false))
-            drawer.addButton(text: "上下", value: "2", inSection: .singleSelect("翻页", false))
-            drawer.addButton(text: "浅色", value: "light", inSection: .multipleSelect("主题", false))
-            drawer.addButton(text: "深色", value: "dark", inSection: .multipleSelect("主题", false))
-            drawer.addButton(text: "护眼", value: "eye", inSection: .multipleSelect("主题", false))
+            let symbols = ["平移": "rectangle.expand.vertical", "仿真": "book",
+                           "上下": "arrow.up.and.down", "浅色": "sun.max",
+                           "深色": "moon", "护眼": "eye"]
+            for (text, value, section) in [
+                ("平移", "0", BoneDrawerSheetView.SectionType.singleSelect("翻页", true)),
+                ("仿真", "1", .singleSelect("翻页", false)),
+                ("上下", "2", .singleSelect("翻页", false)),
+                ("浅色", "light", .multipleSelect("主题", false)),
+                ("深色", "dark", .multipleSelect("主题", false)),
+                ("护眼", "eye", .multipleSelect("主题", false))
+            ] {
+                drawer.addButton(text: text, value: value,
+                                 icon: symbols[text].flatMap { UIImage(systemName: $0) },
+                                 inSection: section)
+            }
             drawer.addButton(text: "恢复默认", style: .highlight, inSection: .normal("")) { [weak self] in
                 self?.record("抽屉：恢复默认")
             }
             drawer.sheetConfig.openSectionTitle = true
+            // 行图标用浅色底板 + 主题色，和系统设置的分组列表一致。
+            drawer.sheetConfig.cellIconBackgroundColor = UIColor.systemIndigo.withAlphaComponent(0.12)
+            drawer.sheetConfig.cellIconTint = .systemIndigo
             drawer.showsConfirmButton = true   // 多选统一靠右侧“确定”提交
             drawer.selectAction { [weak self] selections in
                 let titles = selections.map(\.text).joined(separator: "、")

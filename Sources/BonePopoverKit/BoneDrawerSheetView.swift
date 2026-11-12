@@ -60,11 +60,22 @@ open class BoneDrawerSheetView: BonePopoverView {
         public var horizontalInset: CGFloat = 16
         /// 行之间的分隔线颜色，默认系统分隔色；每个分区最后一行不画。
         public var cellSeparatorColor: UIColor = .separator
+        /// 行图标尺寸，默认 32 点；只有传了 `icon` 的行才画。
+        public var cellIconSize: CGFloat = 32
+        /// 行图标底板圆角，默认 9 点。
+        public var cellIconCornerRadius: CGFloat = 9
+        /// 行图标底板颜色，默认 `nil` 不画底板；设成浅色即可得到系统设置那种「色块 + 图标」。
+        public var cellIconBackgroundColor: UIColor?
+        /// 行图标着色，默认 `nil`：原图保留颜色，模板图跟随 `tintColor`。
+        public var cellIconTint: UIColor?
+        /// 图标与文字的间距，默认 12 点。
+        public var cellIconSpacing: CGFloat = 12
+        /// 表头左右内边距，默认 16 点；关闭按钮与右侧按钮都按此贴边，标题随之居中。
+        public var headerInset: CGFloat = 16
 
         public init() {}
     }
 
-    /// 外观参数；修改后立即重排。
     public var sheetConfig = SheetConfig() {
         didSet { rebuildRows() }
     }
@@ -111,10 +122,11 @@ open class BoneDrawerSheetView: BonePopoverView {
     private struct ButtonModel {
         var text: String
         var value: String
+        /// 行首图标；nil 时不占位，行布局与旧版本一致。
+        var icon: UIImage?
         var style: ButtonStyle
         var callback: (() -> Void)?
     }
-
     private struct Section {
         var type: SectionType
         var buttons: [ButtonModel]
@@ -142,7 +154,7 @@ open class BoneDrawerSheetView: BonePopoverView {
         // 面板用分组灰底、行用白底：与系统「设置」式分组列表一致。
         configuration.appearance.backgroundColor = .systemGroupedBackground
         configuration.appearance.showsGrabber = true
-        configuration.contentStyle.titleFont = .systemFont(ofSize: 14)
+        configuration.contentStyle.titleFont = .systemFont(ofSize: 17, weight: .semibold)
         configuration.contentStyle.titleAlignment = .center
         configuration.contentStyle.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 0,
                                                                           bottom: 20, trailing: 0)
@@ -157,13 +169,15 @@ open class BoneDrawerSheetView: BonePopoverView {
     /// - Parameters:
     ///   - text: 行文字。
     ///   - value: 业务值，随提交结果回传。
+    ///   - icon: 行首图标；传了才画，尺寸与底板参数在 `sheetConfig` 里。
     ///   - style: `.default` 或 `.highlight`。
     ///   - sectionType: 所属分区；标题相同即视为同一分区，不存在时自动创建。
     ///   - callback: `.normal` 分区点击后的业务回调；选择型分区忽略。
-    public func addButton(text: String, value: String = "", style: ButtonStyle = .default,
+    public func addButton(text: String, value: String = "", icon: UIImage? = nil,
+                          style: ButtonStyle = .default,
                           inSection sectionType: SectionType = .normal(""),
                           callback: (() -> Void)? = nil) {
-        let model = ButtonModel(text: text, value: value, style: style, callback: callback)
+        let model = ButtonModel(text: text, value: value, icon: icon, style: style, callback: callback)
         // 与阅读器旧实现一致：标题相同即同一个分区，初值 Bool 只影响新行的默认选中。
         if let index = sections.firstIndex(where: { $0.type.title == sectionType.title }) {
             sections[index].buttons.append(model)
@@ -286,13 +300,17 @@ open class BoneDrawerSheetView: BonePopoverView {
             confirmButton.heightAnchor.constraint(equalToConstant: size)
         ]
         NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: header.topAnchor, constant: 12),
-            titleLabel.bottomAnchor.constraint(equalTo: header.bottomAnchor, constant: -12),
-            titleLabel.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 56),
-            titleLabel.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -56),
+            titleLabel.topAnchor.constraint(equalTo: header.topAnchor, constant: 14),
+            titleLabel.bottomAnchor.constraint(equalTo: header.bottomAnchor, constant: -14),
+            titleLabel.leadingAnchor.constraint(equalTo: header.leadingAnchor,
+                                                constant: sheetConfig.headerInset + size + 8),
+            titleLabel.trailingAnchor.constraint(equalTo: header.trailingAnchor,
+                                                 constant: -(sheetConfig.headerInset + size + 8)),
             cancelButton.topAnchor.constraint(equalTo: header.topAnchor),
-            cancelButton.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 8),
-            confirmButton.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -8),
+            cancelButton.leadingAnchor.constraint(equalTo: header.leadingAnchor,
+                                                  constant: sheetConfig.headerInset),
+            confirmButton.trailingAnchor.constraint(equalTo: header.trailingAnchor,
+                                                    constant: -sheetConfig.headerInset),
             confirmButton.centerYAnchor.constraint(equalTo: cancelButton.centerYAnchor)
         ] + cancelSizeConstraints + confirmSizeConstraints)
         return header
@@ -336,6 +354,18 @@ open class BoneDrawerSheetView: BonePopoverView {
         return container
     }
 
+    /// 行首图标视图：只负责图标呈现，底板与约束由 `makeRow` 加。
+    private func makeRowIcon(_ icon: UIImage) -> UIImageView {
+        let view = UIImageView()
+        view.image = icon.renderingMode == .alwaysOriginal ? icon : icon.withRenderingMode(.alwaysTemplate)
+        view.tintColor = sheetConfig.cellIconTint ?? sheetConfig.highlightColor
+        view.contentMode = .scaleAspectFit
+        view.isUserInteractionEnabled = false
+        view.isAccessibilityElement = false
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }
+
     private func makeRow(_ model: ButtonModel, indexPath: IndexPath, type: SectionType,
                          isFirst: Bool, isLast: Bool) -> UIControl {
         let row = UIControl()
@@ -377,13 +407,48 @@ open class BoneDrawerSheetView: BonePopoverView {
         stack.spacing = 12
         stack.isUserInteractionEnabled = false
         stack.translatesAutoresizingMaskIntoConstraints = false
-        background.addSubview(stack)
 
         let separator = UIView()
         separator.backgroundColor = sheetConfig.cellSeparatorColor
         separator.isHidden = isLast
         separator.translatesAutoresizingMaskIntoConstraints = false
         background.addSubview(separator)
+
+        // 先把文字栈挂进背景层，后面两条分支都要用它的 leading 做约束。
+        background.addSubview(stack)
+
+        // 有图标时行首多一个「底板 + 图标」，分隔线从文字起始处缩进，像系统设置那样。
+        if let icon = model.icon {
+            let iconBox = UIView()
+            iconBox.backgroundColor = sheetConfig.cellIconBackgroundColor
+            iconBox.layer.cornerRadius = sheetConfig.cellIconCornerRadius
+            iconBox.layer.cornerCurve = .continuous
+            iconBox.isUserInteractionEnabled = false
+            iconBox.accessibilityIdentifier = "drawer-row-icon"
+            iconBox.translatesAutoresizingMaskIntoConstraints = false
+
+            let iconView = makeRowIcon(icon)
+            iconBox.addSubview(iconView)
+            background.addSubview(iconBox)
+
+            let glyph = max(12, sheetConfig.cellIconSize * 0.58)
+            NSLayoutConstraint.activate([
+                iconView.centerXAnchor.constraint(equalTo: iconBox.centerXAnchor),
+                iconView.centerYAnchor.constraint(equalTo: iconBox.centerYAnchor),
+                iconView.widthAnchor.constraint(equalToConstant: glyph),
+                iconView.heightAnchor.constraint(equalToConstant: glyph),
+                iconBox.leadingAnchor.constraint(equalTo: background.leadingAnchor, constant: 16),
+                iconBox.centerYAnchor.constraint(equalTo: background.centerYAnchor),
+                iconBox.widthAnchor.constraint(equalToConstant: sheetConfig.cellIconSize),
+                iconBox.heightAnchor.constraint(equalToConstant: sheetConfig.cellIconSize),
+                stack.leadingAnchor.constraint(equalTo: iconBox.trailingAnchor,
+                                               constant: sheetConfig.cellIconSpacing),
+                separator.leadingAnchor.constraint(equalTo: stack.leadingAnchor)
+            ])
+        } else {
+            stack.leadingAnchor.constraint(equalTo: background.leadingAnchor, constant: 16).isActive = true
+            separator.leadingAnchor.constraint(equalTo: background.leadingAnchor, constant: 15).isActive = true
+        }
 
         NSLayoutConstraint.activate([
             background.topAnchor.constraint(equalTo: row.topAnchor),
@@ -395,9 +460,7 @@ open class BoneDrawerSheetView: BonePopoverView {
             row.heightAnchor.constraint(greaterThanOrEqualToConstant: sheetConfig.cellHeight),
             stack.topAnchor.constraint(equalTo: background.topAnchor, constant: 12),
             stack.bottomAnchor.constraint(equalTo: background.bottomAnchor, constant: -12),
-            stack.leadingAnchor.constraint(equalTo: background.leadingAnchor, constant: 16),
             stack.trailingAnchor.constraint(equalTo: background.trailingAnchor, constant: -16),
-            separator.leadingAnchor.constraint(equalTo: background.leadingAnchor, constant: 15),
             separator.trailingAnchor.constraint(equalTo: background.trailingAnchor, constant: -15),
             separator.bottomAnchor.constraint(equalTo: background.bottomAnchor),
             separator.heightAnchor.constraint(equalToConstant: 0.5)

@@ -250,7 +250,8 @@ drawer.show(from: presenter)
   - **多选（或单选也要统一提交）**：`drawer.showsConfirmButton = true`，点右侧按钮统一提交，`selectAction` 回传全部选中项并关闭；
   - **单选/立即执行**：用 `.normal("")` 行加 `callback`，点行即回调并关闭，右侧按钮保持隐藏（原实现的单选用法）。
 - 右侧按钮可接管：`drawer.trailingButton` 改文案/图标，或 `drawer.onTrailingButtonTap` 完全接管点击（接管后按钮显示且不自动提交关闭）；`confirmTitle`、`closeAccessibilityLabel` 分别改确定文案与关闭按钮的辅助功能标签。
-- 表面沿用 `.bottomSheet`（仅圆顶部两角、无阴影、0.15 秒滑入），默认显示抓手、标题居中。
+- 表面沿用 `.bottomSheet`（仅圆顶部两角、无阴影、0.15 秒滑入），默认显示抓手、标题居中；抽屉把标题定为 17 点 semibold，表头左右留白 `sheetConfig.headerInset`（默认 16 点），关闭按钮与右侧按钮都按此贴边。
+- 行可以带图标：`addButton(text:value:icon:style:inSection:callback:)` 传 `icon` 才画，不传的行保持原来的纯文字布局。尺寸与外观在 `sheetConfig`：`cellIconSize`（默认 32 点）、`cellIconCornerRadius`（默认 9 点）、`cellIconBackgroundColor`（默认 `nil` 不画底板，设浅色就是系统设置的「色块 + 图标」）、`cellIconTint`（默认跟随 `highlightColor`）、`cellIconSpacing`（图标与文字间距，默认 12 点）。带图标的行分隔线自动从文字起始处缩进。
 
 ### 3.5 Toast 提示
 

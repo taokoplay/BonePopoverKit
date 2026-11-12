@@ -257,4 +257,36 @@ final class PopoverDrawerSheetTests: XCTestCase {
         sheet.configuration.showsBackdrop = true
         XCTAssertEqual(sheetHost.backdropDimmingView.alpha, 0.32, accuracy: 0.01)
     }
+
+    /// 行图标：传了 icon 才占位，底板/着色可配；不给 icon 的行保持原来的纯文字布局。
+    @MainActor
+    func testRowIconIsOptionalAndConfigurable() throws {
+        let sheet = BoneDrawerSheetView(title: "语言")
+        sheet.addButton(text: "跟随系统", value: "system", icon: UIImage(systemName: "iphone"),
+                        inSection: .singleSelect("语言", true))
+        sheet.addButton(text: "English", value: "en", inSection: .singleSelect("语言", false))
+        sheet.sheetConfig.cellIconBackgroundColor = .systemYellow
+        let (window, _, _) = try present(sheet)
+        defer { sheet.dismissPopover(animated: false); window.isHidden = true }
+
+        func iconBox(in identifier: String) throws -> UIView? {
+            let row = try XCTUnwrap(control(identifier, in: sheet.baseView))
+            func find(_ view: UIView) -> UIView? {
+                if view.accessibilityIdentifier == "drawer-row-icon" { return view }
+                for sub in view.subviews { if let hit = find(sub) { return hit } }
+                return nil
+            }
+            return find(row)
+        }
+
+        let withIcon = try XCTUnwrap(try iconBox(in: "drawer-row-0-0"))
+        XCTAssertNil(try iconBox(in: "drawer-row-0-1"), "没传 icon 的行不占位")
+        XCTAssertEqual(withIcon.frame.width, sheet.sheetConfig.cellIconSize, accuracy: 0.5)
+        XCTAssertEqual(withIcon.frame.height, sheet.sheetConfig.cellIconSize, accuracy: 0.5)
+        XCTAssertEqual(withIcon.backgroundColor, .systemYellow, "底板颜色来自 sheetConfig")
+        XCTAssertEqual(withIcon.layer.cornerRadius, sheet.sheetConfig.cellIconCornerRadius, accuracy: 0.1)
+        XCTAssertEqual(withIcon.subviews.first?.frame.width ?? 0,
+                       sheet.sheetConfig.cellIconSize * 0.58, accuracy: 1, "图标约底板 58%")
+        XCTAssertEqual(sheet.sheetConfig.headerInset, 16, "表头左右留白默认 16")
+    }
 }

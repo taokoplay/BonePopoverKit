@@ -378,3 +378,13 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - 两者仍各自独立：`configuration.appearance.backgroundColor` 改面板，`sheetConfig.cellBackgroundColor` 改行，任一改动即时重排。
 - 用例 `testRowBackgroundColorAndGroupedCorners` 更新为断言面板 `.systemGroupedBackground`、行 `.secondarySystemGroupedBackground`，并断言两者默认不同色，避免将来又被改成同一层。
 - 测试：核心 **97/97 通过**（`popover-drawerpalette.log`）。
+
+## 抽屉行图标与表头留白
+
+- `addButton` 新增可选 `icon:`（`UIImage?`，默认 `nil`）；不传时行结构与旧版本完全一致，只有传了才在行首插入「底板 + 图标」。
+- 新配置项（默认值即旧观感）：`cellIconSize` 32、`cellIconCornerRadius` 9、`cellIconBackgroundColor` `nil`（不画底板）、`cellIconTint` `nil`（跟随 `highlightColor`）、`cellIconSpacing` 12、`headerInset` 16。
+- 带图标的行，分隔线从文字起始处缩进（与系统分组列表一致）；无图标行仍是原来的 15 点内缩。
+- 表头跟随 `headerInset`：关闭按钮与右侧按钮贴边留白，标题左右为「留白 + 按钮宽度 + 8」，标题字号默认改为 17 点 semibold。
+- 新增用例 `testRowIconIsOptionalAndConfigurable`：有图标行出现 `drawer-row-icon`（32×32、圆角与底板色取自 `sheetConfig`、图标约底板 58%），无图标行没有该视图，`headerInset` 默认 16。
+- Demo 场景「抽屉式选择」的 6 行都加了 SF 图标（靛蓝底板 + 靛蓝图标），恢复默认一行保持纯文字，用于对比两种布局。
+- 测试：核心 **98/98 通过**（`drawer-icons3.log`）；Demo UI 抽屉用例 **1/1 通过**（`drawer-ui1.log`），带图标后行仍可点、仍能提交并关闭。

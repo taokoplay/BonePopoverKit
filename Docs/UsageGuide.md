@@ -184,6 +184,22 @@ sheet.titleAlignment = .center
 sheet.show(from: presenter)
 ```
 
+也可以先建面板再逐个添加动作，`addButton` / `addAction` 返回对应的 `UIButton`，方便继续设置辅助功能标识等属性：
+
+```swift
+let sheet = BoneActionSheetView(title: "项目操作", message: "选择要执行的操作")
+let share = sheet.addButton("分享", image: UIImage(systemName: "square.and.arrow.up")) {
+    print("执行分享")
+}
+share.accessibilityIdentifier = "sheet-share"
+sheet.addButton("刷新状态", dismissesPopover: false) { print("刷新后继续保留弹窗") }
+sheet.addButton("删除", role: .destructive) { print("执行删除业务") }
+sheet.cancelTitle = "返回"
+sheet.show(from: presenter)
+```
+
+`addAction` 接受完整 `PopoverAction`；两种写法可以混用，新按钮始终排在取消按钮之上，添加后立即重新测量，已展示时也会即时刷新高度。
+
 操作列表默认在标题左侧显示向下箭头关闭按钮（阅读器默认头部样式，40 × 40 点圆形命中区，图标颜色跟随 `contentStyle.titleColor`），点击关闭弹窗；设置 `sheet.showsCloseButton = false` 可隐藏，标题随即回到内容左边距。`closeButton` 可直接访问，用于定制图标或辅助功能属性。
 
 文案可运行期替换且默认不变：`sheet.cancelTitle = "Dismiss"`，未设置时回退初始化参数，再回退“取消”；关闭按钮辅助功能标签走 `sheet.closeAccessibilityLabel`（默认“关闭”）。遮罩标签是 `popover.backdropAccessibilityLabel`，Toast 类型朗读描述是 `toast.typeDescriptions`，见第 7 节。

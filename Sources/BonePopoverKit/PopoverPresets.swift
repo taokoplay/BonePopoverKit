@@ -316,7 +316,8 @@ open class BoneActionSheetView: BonePopoverView {
         cancelButton.configuration?.title = resolvedCancelTitle
         invalidatePopoverLayout()
     }
-    private let actions: [PopoverAction]
+    /// 已添加的动作；初始化时传入或通过 addAction/addButton 增量追加。
+    private var actions: [PopoverAction]
     /// 初始化时给出的取消按钮默认文案；cancelTitle 未设置时使用它。
     private let defaultCancelTitle: String
     private let contentStack = makePopoverStack()
@@ -324,7 +325,8 @@ open class BoneActionSheetView: BonePopoverView {
     private var titleLeadingAfterButton: NSLayoutConstraint?
     private var titleLeadingAtEdge: NSLayoutConstraint?
 
-    public init(title: String, message: String? = nil, actions: [PopoverAction], cancelTitle: String = "取消") {
+    public init(title: String, message: String? = nil, actions: [PopoverAction] = [],
+                cancelTitle: String = "取消") {
         self.actions = actions
         self.defaultCancelTitle = cancelTitle
         super.init(nibName: nil, bundle: nil)
@@ -346,16 +348,7 @@ open class BoneActionSheetView: BonePopoverView {
             contentStack.addArrangedSubview(messageLabel)
         }
         for action in actions {
-            let button = UIButton(type: .system)
-            configurePopoverButton(button, title: action.title, prominent: false)
-            button.configuration?.image = action.image
-            button.configuration?.imagePadding = 10
-            if action.role == .destructive { button.tintColor = .systemRed }
-            button.addAction(UIAction { [weak self] _ in
-                guard let self, self.presentationState != .dismissing else { return }
-                if action.dismissesPopover { self.hidden(action.handler) }
-                else { action.handler() }
-            }, for: .touchUpInside)
+            let button = makeActionButton(for: action)
             actionButtons.append(button)
             contentStack.addArrangedSubview(button)
         }
@@ -364,6 +357,51 @@ open class BoneActionSheetView: BonePopoverView {
         contentStack.addArrangedSubview(cancelButton)
         setContentView(contentStack)
         applyContentStyle()
+    }
+
+    /// 增量添加动作；按钮落在取消按钮之前，添加后立即重新测量。
+    /// 视图尚未加载时会先加载，因此返回值始终有效。
+    @discardableResult
+    public func addAction(_ action: PopoverAction) -> UIButton {
+        loadViewIfNeeded()
+        let button = makeActionButton(for: action)
+        insertActionButton(button)
+        actions.append(action)
+        actionButtons.append(button)
+        applyContentStyle()
+        invalidatePopoverLayout()
+        return button
+    }
+
+    /// 便捷写法：直接给出标题、图标、角色与回调。
+    @discardableResult
+    public func addButton(_ title: String, image: UIImage? = nil,
+                          role: PopoverAction.Role = .normal,
+                          dismissesPopover: Bool = true,
+                          handler: @escaping () -> Void = {}) -> UIButton {
+        addAction(PopoverAction(title, image: image, role: role,
+                                dismissesPopover: dismissesPopover, handler: handler))
+    }
+
+    private func makeActionButton(for action: PopoverAction) -> UIButton {
+        let button = UIButton(type: .system)
+        configurePopoverButton(button, title: action.title, prominent: false)
+        button.configuration?.image = action.image
+        button.configuration?.imagePadding = 10
+        if action.role == .destructive { button.tintColor = .systemRed }
+        button.addAction(UIAction { [weak self] _ in
+            guard let self, self.presentationState != .dismissing else { return }
+            if action.dismissesPopover { self.hidden(action.handler) }
+            else { action.handler() }
+        }, for: .touchUpInside)
+        return button
+    }
+
+    /// 动作按钮始终排在取消按钮之前；取消按钮尚未加入时追加到末尾。
+    private func insertActionButton(_ button: UIButton) {
+        let index = contentStack.arrangedSubviews.firstIndex(of: cancelButton)
+            ?? contentStack.arrangedSubviews.count
+        contentStack.insertArrangedSubview(button, at: index)
     }
 
     /// 配置关闭按钮：默认 40 × 40 点命中区，尺寸与图标由 contentStyle 控制；只在 viewDidLoad 执行一次。

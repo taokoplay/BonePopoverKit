@@ -288,3 +288,11 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - 改写策略：只在属性赋值或视图加载时写按钮，样式刷新不回写文案，宿主直接修改 `button.configuration?.title` 的旧行为继续保留。
 - 核心回归 **81/81 通过**（`core-strings.log`；`PopoverReaderParityTests` 扩到 7 项，新增操作列表文案与 Toast/遮罩标签 2 项）。
 - UI 复测：Demo `testActionSheetUsesReaderDefaultSheetLayout` 在 Duo/iOS 27.1 通过；`PopoverToastUITests/testTypesAndDurationCanChangeWhileVisible`（覆盖 Toast 类型描述朗读值）在 **iPhone 13 Pro / iOS 26.0** 通过（`ui-toast-26.log`），在同机 Duo / iOS 27.1 上两次运行分别失败于导航栏 `toast-options` 元素查找与朗读值等待（失败位置不同，`ui-strings.log` / `ui-toast-retry.log`），暂判为模拟器负载抖动，不记为通过；字符串行为以 7 项单元测试为准。
+
+## 操作列表增量 API（addButton / addAction）
+
+- `BoneActionSheetView.init(title:message:actions:cancelTitle:)` 的 `actions` 改为默认空数组，因此可以只给标题/正文建面板；新增 `addButton(_:image:role:dismissesPopover:handler:)` 与 `addAction(_:)`，都返回对应 `UIButton`。
+- 新按钮插入到取消按钮之前（`insertActionButton` 按取消按钮索引定位），添加后立即 `applyContentStyle()` 并 `invalidatePopoverLayout()`，已展示时高度即时刷新；视图未加载时先 `loadViewIfNeeded()`，不会重复创建按钮。
+- 按钮构建抽成 `makeActionButton(for:)`，初始化路径与增量路径共用同一份样式、图标、destructive 着色和关闭语义。
+- 测试：新增 `PopoverActionSheetBuilderTests` 2 项（无 actions 创建 + 竖排顺序/字体、`dismissesPopover` 与先关闭再回调）；核心回归 **83/83 通过**（`core-builder.log`）。
+- Demo 场景 2 改为增量写法；UI 用例 `testActionSheetUsesReaderDefaultSheetLayout` **1/1 通过**（`ui-builder.log`）。

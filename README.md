@@ -70,6 +70,16 @@ let sheet = BoneActionSheetView(title: "项目操作", actions: [
 sheet.show(from: self)
 ```
 
+操作列表也支持先建面板、再逐个加按钮（新按钮始终排在取消之上，添加后立即重新测量）：
+
+```swift
+let sheet = BoneActionSheetView(title: "项目操作", message: "选择要执行的操作")
+sheet.addButton("分享", image: UIImage(systemName: "square.and.arrow.up")) { share() }
+sheet.addButton("刷新状态", dismissesPopover: false) { refresh() }
+sheet.addButton("删除", role: .destructive) { delete() }
+sheet.show(from: self)
+```
+
 操作列表默认在标题左侧显示向下箭头关闭按钮（阅读器默认头部，40 × 40 点命中区，辅助功能标识 `popover-close`），标题居中；`showsCloseButton = false` 可隐藏，`closeButton` 可定制图标与辅助功能属性。
 
 内置文案由各组件自己管，默认都是原文字：`alert.confirmTitle` / `alert.cancelTitle`（默认“确认”“取消”）、`sheet.cancelTitle`（默认取初始化参数）、`sheet.closeAccessibilityLabel`（默认“关闭”）、`toast.typeDescriptions`（默认“成功”“失败”“提示”“加载中”）、`popover.backdropAccessibilityLabel`（默认 `NSLocalizedString("Dismiss")`）。主题与动画同样可选：`configuration.interfaceStyle` 默认 `.unspecified` 跟随宿主，设为 `.light` / `.dark` 可固定弹层外观；`PopoverAnimation.scale(0.8)` 可调整缩放幅度，`.scale` 仍是 0.92。与阅读器旧基类的逐项对照见 [阅读器对照](Docs/ReaderParity.md)。

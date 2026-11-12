@@ -208,15 +208,20 @@ final class DemoViewController: UITableViewController {
                 self?.record("项目名称：\(value)")
             }
         case 2:
-            popover = BoneActionSheetView(title: "项目操作", message: "可在弹窗显示期间切换外观。", actions: [
-                PopoverAction("切换风格", image: UIImage(systemName: "paintpalette"), dismissesPopover: false) { [weak self] in
-                    guard let self else { return }
-                    self.selectedStyle = (self.selectedStyle + 1) % self.styles.count
-                    self.currentPopover?.configuration.appearance = self.appearance
-                },
-                PopoverAction("归档项目", image: UIImage(systemName: "archivebox")) { [weak self] in self?.record("已归档") },
-                PopoverAction("删除项目", image: UIImage(systemName: "trash"), role: .destructive) { [weak self] in self?.record("演示：已删除") }
-            ])
+            // 增量写法：先建面板，再逐个添加动作（按钮落在取消之上）。
+            let sheet = BoneActionSheetView(title: "项目操作", message: "可在弹窗显示期间切换外观。")
+            sheet.addButton("切换风格", image: UIImage(systemName: "paintpalette"), dismissesPopover: false) { [weak self] in
+                guard let self else { return }
+                self.selectedStyle = (self.selectedStyle + 1) % self.styles.count
+                self.currentPopover?.configuration.appearance = self.appearance
+            }
+            sheet.addButton("归档项目", image: UIImage(systemName: "archivebox")) { [weak self] in
+                self?.record("已归档")
+            }
+            sheet.addButton("删除项目", image: UIImage(systemName: "trash"), role: .destructive) { [weak self] in
+                self?.record("演示：已删除")
+            }
+            popover = sheet
         case 12:
             let alert = BoneAlertView(title: "自定义字体与间距", message: "标题 22 点粗体，正文 15 点；内边距、段落和按钮间距统一设置。") {}
             var style = PopoverContentStyle()

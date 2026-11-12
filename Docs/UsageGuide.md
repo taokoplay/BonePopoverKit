@@ -184,6 +184,8 @@ sheet.titleAlignment = .center
 sheet.show(from: presenter)
 ```
 
+操作列表默认在标题左侧显示向下箭头关闭按钮（阅读器默认头部样式，40 × 40 点圆形命中区，图标颜色跟随 `contentStyle.titleColor`），点击关闭弹窗；设置 `sheet.showsCloseButton = false` 可隐藏，标题随即回到内容左边距。`closeButton` 可直接访问，用于定制图标或辅助功能属性。
+
 `PopoverAction` 的字段如下，默认值来自其初始化参数：
 
 | 字段 | 名称 | 默认值 | 说明 |
@@ -352,7 +354,7 @@ popover.show(from: presenter)
 
 ### 5.2 外观字段
 
-字段通过 `configuration.appearance` 访问，下表默认值来自 `PopoverAppearance()`。`.classic` 将材质设为纯色、圆角设为 16 点，`.bottomSheet` 会显示抓手。
+字段通过 `configuration.appearance` 访问，下表默认值来自 `PopoverAppearance()`。`.classic` 将材质设为纯色、圆角设为 16 点；`.bottomSheet` 采用阅读器默认样式——纯色表面、`systemBackground`、圆角 16 点仅顶部两角、无抓手、无背景遮罩且不叠加阴影。
 
 | 字段 | 名称 | 默认值 | 说明 |
 | --- | --- | --- | --- |
@@ -360,6 +362,7 @@ popover.show(from: presenter)
 | `backgroundColor` | 面板背景色 | `.secondarySystemBackground` | 用于纯色材质及降低透明度时的回退。 |
 | `tintColor` | 玻璃染色 | `nil` | 原生液态玻璃的染色；模糊回退效果可能不同。 |
 | `cornerRadius` | 面板圆角 | 24 点 | 面板内容与材质轮廓的圆角半径。 |
+| `maskedCorners` | 圆角作用角 | 四角 | 仅这些角应用圆角，映射 CALayer 的 maskedCorners；底部 sheet 可只圆顶部两角。 |
 | `borderColor` | 边框颜色 | `.separator` | 面板前景边框的颜色。 |
 | `borderWidth` | 边框宽度 | 0 点 | 设置大于 0 时显示配置边框；增强对比度时系统可提高宽度。 |
 | `shadowColor` | 阴影颜色 | `.black` | 自定义面板阴影的颜色。 |
@@ -401,12 +404,12 @@ popover.show(from: presenter)
 
 | `PopoverConfiguration` 预设 | 位置 | 最大宽度 | 默认动画 | 默认拖拽 |
 | --- | --- | --- | --- | --- |
-| `.bottomSheet` | 底部 | 560 点 | 底部滑入 | 开，自动向下 |
+| `.bottomSheet` | 底部，贴底、无外部留白 | 560 点 | 底部滑入（0.15 秒） | 开，自动向下 |
 | `.centerDialog` | 居中 | 420 点 | 缩放 | 关 |
 | `.topBanner` | 顶部 | 560 点 | 顶部滑入 | 开，自动向上 |
 | `.sidePanel` | trailing 侧，高度填满 | 400 点 | trailing 侧滑入 | 开，自动向外 |
 
-`.bottomSheet` 默认显示抓手。`.topBanner` 的背景遮罩透明度默认是 0.12，不会自动消失；其余预设默认 0.32。
+`.bottomSheet` 按阅读器默认样式设定：纯色表面、圆角 16 点仅顶部两角、贴底无外部留白，宽度取所在可用区并受 560 点上限约束，默认不显示背景遮罩和抓手，也不叠加阴影，内置标题默认居中（左对齐时标题从关闭按钮右侧起排，其余对齐按整行计算）。`.topBanner` 的背景遮罩透明度默认是 0.12，不会自动消失；`.centerDialog` 和 `.sidePanel` 默认 0.32。
 
 `BonePopoverView` 无配置初始化时默认使用居中预设；`BonePopoverView(contentView:)` 默认使用底部预设。直接创建 `PopoverConfiguration()` 的默认布局是底部。
 

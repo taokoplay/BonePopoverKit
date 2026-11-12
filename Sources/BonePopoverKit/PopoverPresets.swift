@@ -228,6 +228,17 @@ open class BoneActionSheetView: BonePopoverView {
     public private(set) var actionButtons: [UIButton] = []
     /// 列表末尾的取消按钮，点击后直接关闭弹窗。
     public let cancelButton = UIButton(type: .system)
+    /// 标题左侧的向下箭头关闭按钮，点击关闭弹窗；对应阅读器 sheet 默认头部。
+    public let closeButton = UIButton(type: .system)
+    /// 是否在标题左侧显示关闭按钮，默认显示（阅读器默认样式）。
+    /// 加载前设置决定初始头部；加载后修改立即显示或隐藏，标题前置约束同步更新。
+    public var showsCloseButton: Bool = true {
+        didSet {
+            guard isViewLoaded, oldValue != showsCloseButton else { return }
+            rebuildHeaderRow()
+            baseView.setNeedsLayout()
+        }
+    }
     /// 标题对齐的便利入口，直接读写 configuration.contentStyle.titleAlignment。
     public var titleAlignment: NSTextAlignment {
         get { configuration.contentStyle.titleAlignment }
@@ -236,6 +247,9 @@ open class BoneActionSheetView: BonePopoverView {
     private let actions: [PopoverAction]
     private let cancelTitle: String
     private let contentStack = makePopoverStack()
+    private let headerRow = UIView()
+    private var titleLeadingAfterButton: NSLayoutConstraint?
+    private var titleLeadingAtEdge: NSLayoutConstraint?
 
     public init(title: String, message: String? = nil, actions: [PopoverAction], cancelTitle: String = "取消") {
         self.actions = actions
@@ -250,7 +264,10 @@ open class BoneActionSheetView: BonePopoverView {
         super.viewDidLoad()
         configurePopoverLabel(titleLabel)
         titleLabel.accessibilityTraits.insert(.header)
-        contentStack.addArrangedSubview(titleLabel)
+        configureHeaderRow()
+        configureCloseButton()
+        contentStack.addArrangedSubview(headerRow)
+        rebuildHeaderRow()
         if let text = messageLabel.text, !text.isEmpty {
             configurePopoverLabel(messageLabel)
             contentStack.addArrangedSubview(messageLabel)
@@ -276,22 +293,95 @@ open class BoneActionSheetView: BonePopoverView {
         applyContentStyle()
     }
 
+    /// 配置关闭按钮：40 × 40 点圆形命中区，点击关闭；只在 viewDidLoad 执行一次。
+    private func configureCloseButton() {
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        closeButton.widthAnchor.constraint(equalToConstant: 40).isActive = true
+        closeButton.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        closeButton.accessibilityLabel = "关闭"
+        closeButton.accessibilityIdentifier = "popover-close"
+        closeButton.addAction(UIAction { [weak self] _ in self?.hidden() }, for: .touchUpInside)
+    }
+
+    /// 标题行约束：标题横贯整行（居中/右对齐按整行计算），关闭按钮覆盖在左侧；
+    /// 左对齐时标题改为从按钮右侧 8 点起排，避免文字压住按钮。
+    private func configureHeaderRow() {
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        headerRow.addSubview(closeButton)
+        headerRow.addSubview(titleLabel)
+        NSLayoutConstraint.activate([
+            closeButton.leadingAnchor.constraint(equalTo: headerRow.leadingAnchor),
+            closeButton.centerYAnchor.constraint(equalTo: headerRow.centerYAnchor),
+            titleLabel.topAnchor.constraint(greaterThanOrEqualTo: headerRow.topAnchor),
+            titleLabel.bottomAnchor.constraint(lessThanOrEqualTo: headerRow.bottomAnchor),
+            titleLabel.centerYAnchor.constraint(equalTo: headerRow.centerYAnchor),
+            titleLabel.trailingAnchor.constraint(equalTo: headerRow.trailingAnchor),
+        ])
+        titleLeadingAfterButton = titleLabel.leadingAnchor.constraint(
+            equalTo: closeButton.trailingAnchor, constant: 8)
+        titleLeadingAtEdge = titleLabel.leadingAnchor.constraint(equalTo: headerRow.leadingAnchor)
+    }
+
+    /// 按当前对齐方向与关闭按钮可见性启用标题前置约束：
+    /// 左对齐且按钮可见时避让按钮，居中/右对齐或已隐藏按钮时使用整行。
+    private func applyTitleLeadingConstraint() {
+        let avoidsButton = showsCloseButton
+            && (configuration.contentStyle.titleAlignment == .left
+                || configuration.contentStyle.titleAlignment == .natural)
+        titleLeadingAtEdge?.isActive = !avoidsButton
+        titleLeadingAfterButton?.isActive = avoidsButton
+    }
+
+    /// 按 showsCloseButton 显示或隐藏关闭按钮；不使用增删子视图，
+    /// 否则会连带移除标题行的水平约束，使左对齐标题退回固有宽度。
+    /// 隐藏态不参与命中测试与辅助功能，标题前置约束随之回到整行。
+    private func rebuildHeaderRow() {
+        closeButton.isHidden = !showsCloseButton
+        applyTitleLeadingConstraint()
+    }
+
     /// 更新文字样式与段落/按钮间距，操作列表始终保留竖排布局。
     open override func applyContentStyle() {
         guard isViewLoaded else { return }
         let style = configuration.contentStyle
         applyPopoverTypography(style, title: titleLabel, message: messageLabel,
                                buttons: actionButtons + [cancelButton], traits: traitCollection)
+        applyCloseButtonStyle(style)
+        // 标题对齐可能在显示期间改变，前置约束需跟随重新启用，避免居中标题被按钮留白推偏。
+        applyTitleLeadingConstraint()
         contentStack.directionalLayoutMargins = style.resolvedContentInsets
         contentStack.spacing = style.resolvedButtonSpacing
-        if contentStack.arrangedSubviews.contains(titleLabel) {
+        if contentStack.arrangedSubviews.contains(headerRow) {
             // 有正文时分别设置两段间距；无正文时使用“内容到按钮”间距连接标题和首个动作。
             let hasMessage = contentStack.arrangedSubviews.contains(messageLabel)
             contentStack.setCustomSpacing(hasMessage ? style.resolvedTitleSpacing : style.resolvedContentSpacing,
-                                          after: titleLabel)
+                                          after: headerRow)
             if hasMessage { contentStack.setCustomSpacing(style.resolvedContentSpacing, after: messageLabel) }
         }
         baseView.setNeedsLayout()
+    }
+
+    /// 关闭按钮外观：小号向下箭头；iOS 26+ 使用液态玻璃圆圈按钮，早期系统回退半透明圆圈。
+    private func applyCloseButtonStyle(_ style: PopoverContentStyle) {
+        let chevron = UIImage(systemName: "chevron.down",
+                              withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .medium))
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            var configuration = UIButton.Configuration.glass()
+            configuration.cornerStyle = .capsule
+            configuration.image = chevron
+            closeButton.configuration = configuration
+            closeButton.tintColor = style.titleColor
+            return
+        }
+        #endif
+        closeButton.configuration = nil
+        closeButton.setImage(chevron, for: .normal)
+        closeButton.tintColor = style.titleColor
+        closeButton.backgroundColor = style.titleColor.withAlphaComponent(0.08)
+        closeButton.layer.cornerRadius = 20
+        closeButton.clipsToBounds = true
     }
 }
 

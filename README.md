@@ -70,6 +70,8 @@ let sheet = BoneActionSheetView(title: "项目操作", actions: [
 sheet.show(from: self)
 ```
 
+操作列表默认在标题左侧显示向下箭头关闭按钮（阅读器默认头部，40 × 40 点命中区，辅助功能标识 `popover-close`），标题居中；`showsCloseButton = false` 可隐藏，`closeButton` 可定制图标与辅助功能属性。
+
 ## Toast 提示
 
 `BoneToastView` 支持顶部长条、底部长条和中间方块，以及成功、失败、提示、加载中四种类型。四种类型均默认停留 **2 秒**后自动关闭，无遮罩，允许继续操作底层页面。按需选择一种用法：
@@ -125,7 +127,7 @@ BoneToastView(message: "正在加载", type: .loading, style: .center).show(from
 
 ### 材质外观 `configuration.appearance`
 
-下表默认值来自 `PopoverAppearance()`；`.classic` 将材质设为纯色、圆角设为 16 点，`.bottomSheet` 会显示抓手。
+下表默认值来自 `PopoverAppearance()`；`.classic` 将材质设为纯色、圆角设为 16 点。`.bottomSheet` 采用阅读器默认样式：纯色 `systemBackground` 表面、圆角 16 点仅顶部两角、无抓手、无背景遮罩且不叠加阴影。
 
 | 字段 | 名称 | 默认值 | 说明 |
 | --- | --- | --- | --- |
@@ -133,6 +135,7 @@ BoneToastView(message: "正在加载", type: .loading, style: .center).show(from
 | `backgroundColor` | 面板背景色 | `.secondarySystemBackground` | 用于纯色材质及降低透明度时的回退。 |
 | `tintColor` | 玻璃染色 | `nil` | 原生液态玻璃的染色；模糊回退效果可能不同。 |
 | `cornerRadius` | 面板圆角 | 24 点 | 面板内容与材质轮廓的圆角半径。 |
+| `maskedCorners` | 圆角作用角 | 四角 | 仅这些角应用圆角，映射 `CALayer.maskedCorners`；底部 sheet 通常只圆顶部两角。 |
 | `borderColor` | 边框颜色 | `.separator` | 面板前景边框的颜色。 |
 | `borderWidth` | 边框宽度 | 0 点 | 设置大于 0 时显示配置边框；增强对比度时系统可提高宽度。 |
 | `shadowColor` | 阴影颜色 | `.black` | 自定义面板阴影的颜色。 |
@@ -157,7 +160,7 @@ let popover = BonePopoverView(contentView: content, configuration: config)
 popover.show(from: self)
 ```
 
-内置布局：`.bottomSheet`、`.centerDialog`、`.topBanner`、`.sidePanel`。顶部通知默认是模态浮层，不自动消失；可独立开启外部触摸穿透。
+内置布局：`.bottomSheet`、`.centerDialog`、`.topBanner`、`.sidePanel`。`.bottomSheet` 为阅读器默认底栏：贴底、无外部留白，宽度取所在可用区并受 560 点上限；圆角 16 点仅顶部两角、纯色 `systemBackground`、无遮罩无抓手无阴影，0.15 秒底部滑入，内置标题默认居中。顶部通知默认是模态浮层，不自动消失；可独立开启外部触摸穿透。
 
 内置确认框、输入框和操作列表共用 `configuration.contentStyle: PopoverContentStyle`。标题默认 `UIFont.boldSystemFont(ofSize: 18)`，正文默认 17 点，四边内容内边距默认 24 点。字体、颜色、对齐和内部间距可统一复用，也可在显示期间逐项修改并自动重新测量：
 

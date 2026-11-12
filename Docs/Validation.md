@@ -221,3 +221,34 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - iPhone 13 Pro / iOS 26 原布局 UI **2/2 通过**；新增菜单 UI 单独执行 **1/1 通过**。实际操作持续显示 → 失败 → 提示 → 加载中 → 成功 → 1 秒自动关闭，验证辅助功能状态值、Toast 持续存在和最后自动移除，并保存四种类型截图。Demo “Toast”菜单提供类型以及 1 / 2 / 3 / 5 秒或持续显示，默认时长同步为 2 秒。
 - 首轮 UI 未枚举新增方法，按完整方法名执行时仍为 0 tests，未将此记录算作新增用例通过。确认方法已编译、带 Objective-C thunk，且已安装测试二进制与构建产物相同；终止并卸载专用 QA 模拟器中的测试运行器，再由 Xcode 安装后，新方法实际执行且通过。测试方法未改写或合并。
 - 证据：`toast-types-core.log` / `ToastTypesCore.xcresult`、`toast-types-phone-ui.log` / `ToastTypesPhoneUI.xcresult`、`toast-types-menu-fresh.log` / `ToastTypesMenuFresh.xcresult`，四类型截图位于 `toast-types-menu-screens`。本轮未扩展平板、真机或完整人工辅助功能验收。
+
+## Sheet 默认样式按阅读器默认调整
+
+对照 ParsingBook（小说阅读器）的定制 `BonePopoverView` 基类与其 sheet 子类：圆角 16 点、`.sheet` 形态仅顶部两角、全宽贴底无外部留白、默认无背景遮罩（`isShowBackgroud = false`）、无抓手、纯色表面、基类背景为 `systemBackground`、定制动画时长 0.15 秒。`.bottomSheet` 预设按上述值重设；`PopoverAppearance` 新增 `maskedCorners`（默认四角，行为不变），表面视图将其同步到前景层、效果层与阴影路径。iOS 26 玻璃的非对称圆角改用 `UICornerConfiguration.corners(topLeftRadius:...)` 逐角配置（不圆的角传 nil），保持玻璃原生轮廓；iOS 25 及更早版本继续使用 layer 圆角加 maskedCorners。`BonePopoverView(contentView:)` 默认使用 `.bottomSheet`，因此自定义内容底部面板同步获得该默认样式；其他预设与 `PopoverConfiguration()` 默认值不变。
+
+- iPhone Duo（8E80DEE0，iOS 27.1）核心测试 **72 项中 71 通过、1 项超时**：`testDynamicTypeChangesScaleFromBaseFontsAndCanBeDisabled` 在 traits 传播等待 3 秒内未完成（XCTWaiter 超时）；该用例使用未改动的 `.centerDialog` 预设，单测重跑 **1/1 通过**（10.7 秒），判定为模拟器时序抖动而非本次改动引入。两项新增测试（`.bottomSheet` 预设默认值、非对称圆角应用）均通过。日志无 Auto Layout 约束冲突。
+- 补充阅读器头部关闭按钮：操作列表标题左侧新增向下箭头关闭按钮（`closeButton`，40 × 40 点圆形命中区，辅助功能标签"关闭"、标识 `popover-close`），点击关闭弹窗；`showsCloseButton = false` 可隐藏，加载后修改实时生效。对应阅读器各 sheet 子类 `backButton.pin.left().top().width(40)` 的头部结构。箭头使用 12 点 medium 的 SF Symbol `chevron.down`；iOS 26+ 通过 `UIButton.Configuration.glass()`（capsule）渲染液态玻璃圆圈按钮，早期系统回退为标题色 8% 透明度圆圈。图标颜色跟随 `contentStyle.titleColor`。Demo"外观"选"自动"时不再整体覆盖预设外观，让 sheet 默认样式生效。核心回归 **73/73 通过**（新增关闭按钮行为 1 项，2 项纯内容样式度量用例改为 `showsCloseButton = false` 保持原语义）；UI 测试 `testActionSheetUsesReaderDefaultSheetLayout` 实际点击关闭按钮关闭并截图通过。截图：`Screenshots/iPhoneDuo/action-sheet-reader-default.png`。该轮结束时对 `.bottomSheet` 追加的标题居中与隐藏态约束问题见下一节，本轮修复后重新验证。
+- 本会话 scratch 证据：`sheet-reader-core.log`、`dynamic-retest.log`、`sheet-close-core.log`、`sheet-reader-ui.log`。
+- 阅读器侧的浅色主题强制覆盖（`userInterfaceStyleOverride` 跟随 BoneThemeManager）属于应用层主题逻辑，未纳入 SDK 默认。
+
+## Sheet 阅读器默认样式收尾（标题居中与头部约束）
+
+上一轮在 12:47 跑完 73/73 与 UI 测试后，又对 `.bottomSheet` 追加了 `contentStyle.titleAlignment = .center`（对照 ParsingBook 各 sheet 子类标题居中），但没有重跑测试；同时头部隐藏逻辑存在真实布局缺陷。本轮补齐：
+
+1. 基线复现：Duo（8E80DEE0，iOS 27.1）核心测试 **73 项中 2 项失败**——`testDefaultTitleIs18PointBoldInAllPresets`、`testConveniencePropertiesShareStyleAndFullConfigurationReplacesIt` 仍断言所有预设标题左对齐。按阅读器参照把预期改为「`.bottomSheet` 居中、确认框与输入框左对齐」，而不是放宽断言。
+2. 头部约束缺陷：`rebuildHeaderRow()` 原先 `closeButton.removeFromSuperview()` 后再 `addSubview`，UIKit 移除子视图时连带移除安装在 `headerRow` 上的 `closeButton.leading` / `centerY` 约束，标题行随之塌陷。临时打印实测：`titleLabel.frame = (270.33, 0, 71.67, 21.67)`、`closeButton.frame = (222.33, 0, 40, 40)`、`headerRow` 高 21.67，左对齐标题退回固有宽度并贴右。改为 `closeButton.isHidden = !showsCloseButton`，不再增删子视图；隐藏态不参与命中测试与辅助功能。
+3. 前置约束未跟随状态：`applyTitleLeadingConstraint()` 未考虑 `showsCloseButton`，且 `applyContentStyle()` 没有重新启用约束，显示期间切换标题对齐会把居中标题推偏。现在两处都在样式刷新时重算。
+4. 新增 `testSheetTitleLeadingFollowsCloseButtonAndAlignment`：左对齐标题 minX = 72（24 内容边距 + 40 按钮 + 8 间距）、隐藏按钮后回到 24、切到居中后横贯整行（24 至宽度 − 24）；原「隐藏后无父视图」断言改为 `isHidden`。
+5. 文档：README / UsageGuide 补 `maskedCorners`、关闭按钮、`.bottomSheet` 标题居中与 560 点宽度上限（此前写「全宽」与实现不符）；UsageGuide 的「40 × 44 命中区」更正为「40 × 40」。
+
+- 核心回归 **74/74 通过**（`core-full.log`；失败基线 `core-baseline.log`），无 Auto Layout 冲突告警。
+- UI 测试 `testActionSheetUsesReaderDefaultSheetLayout` **1/1 通过**（`sheet-reader-ui7.log` / `SheetReaderUI7.xcresult`），截图重采集为 `Screenshots/iPhoneDuo/action-sheet-reader-default.png`（1398 × 2034）。
+- 该 UI 用例的宽度断言改用窗口坐标：`app.frame` 固定按竖屏返回，横屏或折叠姿态下与元素坐标不一致。Duo 的系统 division/occlusion 保留区会让面板只填满所在侧栏（本轮实测窗口 466 × 678 点、面板 382 点宽、底缘 312.7 + 331.3），因此断言改为「贴底 + 填满所在可用区（受 560 点上限）+ 关闭按钮可点」，不再断言等于整窗宽度。截图中的标题为左对齐，是因为 Demo「标题对齐」菜单默认左对齐覆盖了预设；SDK 默认居中。
+- 环境记录：本轮首次 UI 运行（`sheet-reader-ui2.log`）以 `Timed out while preparing execution worker` 失败并挂起 xcodebuild，终止进程并重启 Duo 模拟器后恢复；`sheet-reader-ui3` / `ui4` 记录了横屏 + 保留区姿态下的定位过程。
+- 未完成：实体 Duo 全姿态的人工验收不在本轮范围；模拟器上的浅色外观与 iPad 平板结果见下一节。
+
+## Sheet 样式补充验证：浅色外观与 iPad 宽布局
+
+- Duo（8E80DEE0，iOS 27.1）切到系统浅色外观（`simctl ui … appearance light`）重跑 `testActionSheetUsesReaderDefaultSheetLayout`，**1/1 通过**（`sheet-reader-light.log` / `SheetReaderLight.xcresult`）。截图 `Screenshots/iPhoneDuo/action-sheet-reader-default-light.png`（1398 × 2034）确认：面板为纯白 `systemBackground`、底部两角为直角、底层列表保持 `secondarySystemBackground` 亮度（无遮罩）。验证完恢复模拟器原来的深色外观。
+- iPad Pro 11-inch (M4) 模拟器（99C156C5，iOS 27.1）同一用例 **1/1 通过**（`sheet-reader-pad.log` / `SheetReaderPad.xcresult`）：面板宽度断言 `≤ 561` 通过，说明 560 点上限在 834 点宽的平板上生效（未封顶会是整窗宽度），底缘贴窗口底部，关闭按钮可点。
+- 结论：`.bottomSheet` 的「贴底、宽度取所在可用区、560 点上限」在手机与平板都成立；「严格整窗满宽」只在小屏手机成立，平板按 560 点居中，该差异已写入 README 与 UsageGuide，不在代码层改变宽度策略。

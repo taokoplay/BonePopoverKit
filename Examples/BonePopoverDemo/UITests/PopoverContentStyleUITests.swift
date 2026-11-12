@@ -83,4 +83,32 @@ final class PopoverContentStyleUITests: XCTestCase {
         }
         cancel.tap()
     }
+
+    /// 阅读器默认 sheet 样式：贴底、无遮罩、宽度填满所在可用区；外观"自动"时预设默认值不被覆盖。
+    @MainActor
+    func testActionSheetUsesReaderDefaultSheetLayout() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo-home"]
+        app.launch()
+        openScene(2, in: app)
+        let content = app.otherElements["popover-content"].frame
+        // 用窗口坐标系判断：app.frame 固定按竖屏返回，横屏或折叠姿态下会与元素坐标不一致。
+        let windowFrame = app.windows.firstMatch.frame
+        // 宽度填满所在可用区并受 560 点上限约束；Duo 存在系统 division/occlusion 保留区时
+        // 只填满所在侧栏、不跨铰链，因此不能断言等于整窗宽度。
+        XCTAssertGreaterThan(content.width, min(windowFrame.width, 560) * 0.7)
+        XCTAssertLessThanOrEqual(content.width, 561)
+        // 贴底：面板底缘位于窗口底部，避让主页指示器安全区。
+        XCTAssertLessThanOrEqual(content.maxY, windowFrame.maxY + 1)
+        XCTAssertGreaterThan(content.maxY, windowFrame.maxY - 40)
+        XCTAssertTrue(app.buttons["popover-cancel"].isHittable)
+        let closeButton = app.buttons["popover-close"]
+        XCTAssertTrue(closeButton.isHittable, "标题左侧应有向下箭头关闭按钮")
+        capture("action-sheet-reader-default")
+        closeButton.tap()
+        XCTAssertTrue(app.cells["scene-2"].waitForExistence(timeout: 5))
+    }
 }

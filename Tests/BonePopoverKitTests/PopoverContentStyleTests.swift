@@ -48,12 +48,15 @@ final class PopoverContentStyleTests: XCTestCase {
         let alert = BoneAlertView(title: "确认", message: "说明") {}
         let input = BoneAlertView(title: "输入", placeholder: "名称") { _ in }
         let sheet = BoneActionSheetView(title: "操作", message: "说明", actions: [PopoverAction("分享")])
-        let presets: [(BonePopoverView, UILabel, UILabel, UIButton)] = [
-            (alert, alert.titleLabel, alert.messageLabel, alert.confirmButton),
-            (input, input.titleLabel, input.messageLabel, input.confirmButton),
-            (sheet, sheet.titleLabel, sheet.messageLabel, sheet.cancelButton)
+        // 本用例度量纯文字样式与间距；关闭按钮头部的几何由 PresetLayoutTests 覆盖。
+        sheet.showsCloseButton = false
+        // 阅读器默认底栏标题居中；确认框和输入框保持左对齐。
+        let presets: [(BonePopoverView, UILabel, UILabel, UIButton, NSTextAlignment)] = [
+            (alert, alert.titleLabel, alert.messageLabel, alert.confirmButton, .left),
+            (input, input.titleLabel, input.messageLabel, input.confirmButton, .left),
+            (sheet, sheet.titleLabel, sheet.messageLabel, sheet.cancelButton, .center)
         ]
-        for (popover, title, message, button) in presets {
+        for (popover, title, message, button, alignment) in presets {
             let (window, _, _) = try present(popover)
             defer { popover.dismissPopover(animated: false); window.isHidden = true }
             XCTAssertEqual(title.font.pointSize, 18, accuracy: 0.01)
@@ -62,7 +65,7 @@ final class PopoverContentStyleTests: XCTestCase {
             XCTAssertEqual(message.font.pointSize, 17, accuracy: 0.01)
             XCTAssertEqual(button.titleLabel?.font.pointSize ?? 0, 17, accuracy: 0.01)
             XCTAssertEqual(frame(title, in: popover).minY, 24, accuracy: 1)
-            XCTAssertEqual(title.textAlignment, .left)
+            XCTAssertEqual(title.textAlignment, alignment)
             XCTAssertTrue(title.adjustsFontForContentSizeCategory)
         }
         XCTAssertEqual(input.textField.font?.pointSize ?? 0, 17, accuracy: 0.01)
@@ -110,6 +113,8 @@ final class PopoverContentStyleTests: XCTestCase {
             var style = customStyle()
             style.buttonLayout = .horizontal
             sheet.configuration.contentStyle = style
+            // 本用例度量纯内容间距；关闭按钮头部的几何由 PresetLayoutTests 覆盖。
+            sheet.showsCloseButton = false
             let (window, _, _) = try present(sheet)
             defer { sheet.dismissPopover(animated: false); window.isHidden = true }
             XCTAssertEqual(sheet.titleLabel.font, style.titleFont)
@@ -275,7 +280,7 @@ final class PopoverContentStyleTests: XCTestCase {
         sheet.configuration.contentStyle.titleFont = .boldSystemFont(ofSize: 25)
         XCTAssertEqual(sheet.titleLabel.font.pointSize, 25, accuracy: 0.01)
         sheet.configuration = .bottomSheet
-        XCTAssertEqual(sheet.titleAlignment, .left)
+        XCTAssertEqual(sheet.titleAlignment, .center)
         XCTAssertEqual(sheet.titleLabel.font.pointSize, 18, accuracy: 0.01)
     }
 }

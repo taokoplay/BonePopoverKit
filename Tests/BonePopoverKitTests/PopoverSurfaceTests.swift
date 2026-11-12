@@ -102,4 +102,55 @@ final class PopoverSurfaceTests: XCTestCase {
             XCTAssertEqual(surface.layer.shadowOpacity, 0.25, "Blur fallback retains its configurable shadow")
         }
     }
+
+    /// 阅读器默认样式：纯色表面、顶部两角圆角 16、无遮罩无抓手无阴影、全宽贴底、0.15 秒滑入。
+    @MainActor
+    func testBottomSheetPresetMatchesReaderDefaults() {
+        let sheet = PopoverConfiguration.bottomSheet
+        let topCorners: CACornerMask = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        if case .solid = sheet.appearance.material {} else {
+            XCTFail("bottomSheet should use the solid material of the reader default")
+        }
+        XCTAssertEqual(sheet.appearance.backgroundColor, .systemBackground)
+        XCTAssertEqual(sheet.appearance.cornerRadius, 16)
+        XCTAssertEqual(sheet.appearance.maskedCorners, topCorners)
+        XCTAssertEqual(sheet.appearance.shadowOpacity, 0)
+        XCTAssertFalse(sheet.appearance.showsGrabber)
+        XCTAssertFalse(sheet.showsBackdrop)
+        XCTAssertEqual(sheet.layout.margins, .zero)
+        XCTAssertEqual(sheet.animation.duration, 0.15, accuracy: 0.001)
+        // 隐藏端点应为面板整体下移出容器底部。
+        let panel = CGRect(x: 0, y: 700, width: 390, height: 200)
+        let container = CGRect(x: 0, y: 0, width: 390, height: 900)
+        XCTAssertEqual(sheet.animation.hiddenState(panel, container, false).transform.ty,
+                       container.maxY - panel.minY, accuracy: 0.001)
+        // 其他预设保持通用默认，不被 sheet 样式带偏。
+        XCTAssertEqual(PopoverConfiguration.centerDialog.appearance.cornerRadius, 24)
+        XCTAssertTrue(PopoverAppearance().maskedCorners.contains(.layerMaxXMaxYCorner))
+    }
+
+    /// 非对称圆角需同步作用于前景层与效果层；玻璃退回层裁切，阴影路径按角生成。
+    @MainActor
+    func testAsymmetricCornersApplyToForegroundEffectAndShadowPath() throws {
+        let surface = PopoverSurfaceView(frame: CGRect(x: 0, y: 0, width: 340, height: 240))
+        var appearance = PopoverAppearance.classic
+        appearance.cornerRadius = 16
+        appearance.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        appearance.shadowOpacity = 0.16
+        surface.apply(appearance, reduceTransparency: false, customBackground: nil)
+        surface.layoutIfNeeded()
+        let effect = try XCTUnwrap(surface.subviews.compactMap { $0 as? UIVisualEffectView }.first)
+        let foreground = try XCTUnwrap(surface.contentContainer.superview)
+        let topCorners: CACornerMask = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        XCTAssertEqual(foreground.layer.maskedCorners, topCorners)
+        if #available(iOS 26.0, *) {
+            XCTAssertEqual(effect.cornerConfiguration,
+                           .corners(topLeftRadius: .fixed(16), topRightRadius: .fixed(16),
+                                    bottomLeftRadius: nil, bottomRightRadius: nil))
+        } else {
+            XCTAssertEqual(effect.layer.cornerRadius, 16)
+            XCTAssertEqual(effect.layer.maskedCorners, topCorners)
+        }
+        XCTAssertNotNil(surface.layer.shadowPath)
+    }
 }

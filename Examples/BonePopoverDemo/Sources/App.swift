@@ -274,7 +274,10 @@ final class DemoViewController: UITableViewController {
             }
             popover = alert
         }
-        popover.configuration.appearance = appearance
+        // "自动"不覆盖外观，让各预设自带默认样式生效（如底部 sheet 的阅读器默认）。
+        if selectedStyle != 0 {
+            popover.configuration.appearance = appearance
+        }
         if let alert = popover as? BoneAlertView {
             alert.titleAlignment = selectedTitleAlignment
             alert.titleLabel.accessibilityIdentifier = "popover-title"

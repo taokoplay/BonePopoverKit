@@ -10,6 +10,8 @@ final class PopoverSurfaceView: UIView {
     private let foregroundView = UIView()
     private var customBackgroundView: UIView?
     private var radius: CGFloat = 24
+    private var cornerMask: CACornerMask = [.layerMinXMinYCorner, .layerMaxXMinYCorner,
+                                           .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -31,6 +33,7 @@ final class PopoverSurfaceView: UIView {
     func apply(_ appearance: PopoverAppearance, reduceTransparency: Bool,
                customBackground: UIView?) {
         radius = max(0, appearance.cornerRadius)
+        cornerMask = appearance.maskedCorners
         let material = resolveMaterial(appearance, reduceTransparency: reduceTransparency,
                                        hasCustomBackground: customBackground != nil)
         // Keep the foreground independent from effect compositing and never
@@ -45,6 +48,7 @@ final class PopoverSurfaceView: UIView {
             if let customBackground { effectView.contentView.insertSubview(customBackground, at: 0) }
         }
         foregroundView.layer.cornerRadius = radius
+        foregroundView.layer.maskedCorners = cornerMask
         foregroundView.layer.borderWidth = max(appearance.borderWidth,
                                                UIAccessibility.isDarkerSystemColorsEnabled ? 1 : 0)
         foregroundView.layer.borderColor = appearance.borderColor.resolvedColor(with: traitCollection).cgColor
@@ -68,7 +72,8 @@ final class PopoverSurfaceView: UIView {
         contentContainer.frame = CGRect(x: 0, y: top, width: contentBounds.width,
                                         height: max(0, contentBounds.height - top))
         layer.shadowPath = layer.shadowOpacity > 0
-            ? UIBezierPath(roundedRect: bounds, cornerRadius: radius).cgPath : nil
+            ? UIBezierPath(roundedRect: bounds, byRoundingCorners: Self.rectCorners(from: cornerMask),
+                           cornerRadii: CGSize(width: radius, height: radius)).cgPath : nil
     }
 
     private func configureEffectCorners() {
@@ -76,11 +81,43 @@ final class PopoverSurfaceView: UIView {
         if #available(iOS 26.0, *) {
             // Tell the glass renderer its actual shape rather than trimming a
             // rectangular glass effect with a rounded mask on its parent.
-            effectView.cornerConfiguration = .uniformCorners(radius: .fixed(Double(radius)))
+            effectView.cornerConfiguration = glassCornerConfiguration()
             return
         }
         #endif
         effectView.layer.cornerRadius = radius
+        effectView.layer.maskedCorners = cornerMask
+        effectView.clipsToBounds = true
+    }
+
+    /// 玻璃统一圆角沿用 uniformCorners；非对称圆角按角单独配置，nil 表示该角不圆，
+    /// 保持玻璃原生轮廓而不退回层裁切。
+    #if compiler(>=6.2)
+    @available(iOS 26.0, *)
+    private func glassCornerConfiguration() -> UICornerConfiguration {
+        guard cornerMask != Self.allCornerMask else {
+            return .uniformCorners(radius: .fixed(Double(radius)))
+        }
+        let rounded = UICornerRadius.fixed(Double(radius))
+        return .corners(
+            topLeftRadius: cornerMask.contains(.layerMinXMinYCorner) ? rounded : nil,
+            topRightRadius: cornerMask.contains(.layerMaxXMinYCorner) ? rounded : nil,
+            bottomLeftRadius: cornerMask.contains(.layerMinXMaxYCorner) ? rounded : nil,
+            bottomRightRadius: cornerMask.contains(.layerMaxXMaxYCorner) ? rounded : nil)
+    }
+    #endif
+
+    private static let allCornerMask: CACornerMask = [.layerMinXMinYCorner, .layerMaxXMinYCorner,
+                                                     .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+
+    /// CACornerMask 与 UIRectCorner 的角顺序一致，逐一映射避免依赖原始值对齐。
+    private static func rectCorners(from mask: CACornerMask) -> UIRectCorner {
+        var corners: UIRectCorner = []
+        if mask.contains(.layerMinXMinYCorner) { corners.insert(.topLeft) }
+        if mask.contains(.layerMaxXMinYCorner) { corners.insert(.topRight) }
+        if mask.contains(.layerMinXMaxYCorner) { corners.insert(.bottomLeft) }
+        if mask.contains(.layerMaxXMaxYCorner) { corners.insert(.bottomRight) }
+        return corners
     }
 
     private func resolveMaterial(_ appearance: PopoverAppearance, reduceTransparency: Bool,

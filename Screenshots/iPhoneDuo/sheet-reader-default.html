@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sheet 阅读器默认样式 — 实机截图</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", sans-serif;
+    background: #0e0e10; color: #e8e8ea; padding: 36px 28px 56px;
+  }
+  header { max-width: 900px; margin: 0 auto 28px; }
+  h1 { font-size: 24px; font-weight: 700; }
+  .meta { margin-top: 8px; font-size: 13.5px; color: #9a9aa2; line-height: 1.7; }
+  .meta code { font-family: ui-monospace, Menlo, monospace; background: #1d1d21; border: 1px solid #2c2c31; border-radius: 5px; padding: 1px 6px; font-size: 12px; }
+  .badge { display: inline-block; margin-right: 8px; padding: 2px 10px; border-radius: 999px; background: #17251c; border: 1px solid #274434; color: #6fd39a; font-size: 12px; }
+  .wrap { max-width: 900px; margin: 0 auto; display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+  figure { background: #17171a; border: 1px solid #2a2a2f; border-radius: 14px; overflow: hidden; flex: 0 0 380px; }
+  figure img { width: 100%; display: block; background: #000; }
+  figcaption { padding: 12px 14px 14px; font-size: 13px; color: #a8a8b0; line-height: 1.6; }
+  .points { flex: 1 1 320px; min-width: 300px; }
+  .points h2 { font-size: 16px; margin-bottom: 12px; color: #d8d8de; }
+  .points ul { list-style: none; }
+  .points li { padding: 10px 0 10px 26px; position: relative; font-size: 14px; line-height: 1.6; border-bottom: 1px solid #222226; }
+  .points li::before { content: "✓"; position: absolute; left: 2px; color: #6fd39a; font-weight: 700; }
+  .points li b { color: #e8e8ea; }
+  .points li span { color: #8d8d95; display: block; font-size: 12.5px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>底部操作列表 · 阅读器默认样式</h1>
+  <div class="meta">
+    <span class="badge">UI 测试通过</span>
+    <code>testActionSheetUsesReaderDefaultSheetLayout</code> · iPhone Duo 模拟器（1398 × 2034）· 外观"自动"
+  </div>
+</header>
+<div class="wrap">
+  <figure>
+    <img src="action-sheet-reader-default.png" alt="底部操作列表阅读器默认样式截图（深色外观）">
+    <figcaption>Demo「底部操作列表」场景 · BoneActionSheetView 默认样式实际渲染（深色外观）</figcaption>
+  </figure>
+  <figure>
+    <img src="action-sheet-reader-default-light.png" alt="底部操作列表阅读器默认样式截图（浅色外观）">
+    <figcaption>同一用例在浅色外观下重跑通过 · 纯色 systemBackground 表面与无遮罩效果</figcaption>
+  </figure>
+  <div class="points">
+    <h2>对照阅读器默认样式的验证点</h2>
+    <ul>
+      <li><b>标题左侧向下箭头关闭按钮</b><span>iOS 26+ 为液态玻璃圆圈按钮（40 × 40，`UIButton.Configuration.glass()`），箭头缩小至 12 点；早期系统回退半透明圆圈</span></li>
+      <li><b>圆角 16 点，仅顶部两角</b><span>底部两角贴边为直角，与 ParsingBook 定制基类一致</span></li>
+      <li><b>纯色 systemBackground 表面</b><span>非液态玻璃、非次级背景色</span></li>
+      <li><b>无背景遮罩</b><span>底层列表保持原亮度，对应 isShowBackgroud = false</span></li>
+      <li><b>无抓手、无阴影</b><span>面板顶部没有拖拽指示条</span></li>
+      <li><b>0.15 秒底部滑入</b><span>阅读器定制动画时长</span></li>
+      <li><b>填满所在可用区、贴底</b><span>宽度取可用区并受 560 点上限；Duo 竖屏的系统保留区不被跨越，面板填充所在侧栏，底缘避让主页指示器（本机实测 382 点宽、窗口 466 点）</span></li>
+      <li><b>截图中的标题为左对齐</b><span>Demo「标题对齐」菜单默认左对齐，覆盖了预设；SDK 的 <code>.bottomSheet</code> 默认居中，左对齐时标题从关闭按钮右侧 8 点起排</span></li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

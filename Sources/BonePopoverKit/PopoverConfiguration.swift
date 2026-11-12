@@ -20,6 +20,10 @@ public struct PopoverAppearance {
     public var borderWidth: CGFloat = 0
     public var shadowColor: UIColor = .black
     public var shadowOpacity: Float = 0.16
+    /// 应用圆角的角集合，映射 CALayer.maskedCorners；默认四角。
+    /// 底部 sheet 通常只圆顶部两角，可通过该字段实现阅读器样式的非对称圆角。
+    public var maskedCorners: CACornerMask = [.layerMinXMinYCorner, .layerMaxXMinYCorner,
+                                             .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
     public var shadowRadius: CGFloat = 24
     public var shadowOffset = CGSize(width: 0, height: 8)
     /// Native glass supplies its own rim and shadow. Enable only to add the
@@ -118,7 +122,18 @@ public struct PopoverConfiguration {
 
     public static var bottomSheet: Self {
         var value = Self()
-        value.appearance.showsGrabber = true
+        // 阅读器默认样式：纯色表面、圆角 16 仅顶部两角、全宽贴底，
+        // 默认无背景遮罩、无抓手、无阴影，0.15 秒从底部滑入；标题默认居中。
+        value.appearance.material = .solid
+        value.appearance.backgroundColor = .systemBackground
+        value.appearance.cornerRadius = 16
+        value.appearance.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        value.appearance.shadowOpacity = 0
+        value.appearance.showsGrabber = false
+        value.showsBackdrop = false
+        value.contentStyle.titleAlignment = .center
+        value.layout.margins = .zero
+        value.animation = .slide(.bottom, duration: 0.15)
         return value
     }
 

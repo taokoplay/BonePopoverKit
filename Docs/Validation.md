@@ -330,3 +330,9 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - `cancelTitle` 更名为 `closeAccessibilityLabel`，只作为关闭按钮的辅助功能标签（默认“关闭”），不再渲染为文字按钮；`confirmTitle` 仍控制“确定”文案。
 - 过程中发现并修复真实缺陷：`rebuildRows()` 每次只移除行、没有移除分区标题，重复重建让面板不断长高（`contentStack` 从 11 → 14 → 17），最终铺满可用高度，右上角的按钮因此被挤到屏幕顶端且 `isHittable == false`。改为“保留首个标题行、其余全部重建”后行数稳定为 7、面板高度回落到内容高度，按钮可点。
 - 测试：新增 `testHeaderPlacesCloseAtTopRightAndConfirmAtTopLeft`（关闭按钮位于右上、确定位于左上、确定可提交）与 `testDemoConfigurationKeepsRowCountStable`（7 行、面板高度 < 600）；抽屉用例 **7/7 通过**（`drawer-rows3.log`），Demo UI `testDrawerSceneSelectsRowAndReportsResult` **1/1 通过**（`ui-drawer8.log`），核心回归见 `core-drawer5.log`。
+
+## 抽屉头部顺序修正（左关闭、右自定义按钮）
+
+- 按用户要求改回阅读器的左右关系：左侧关闭按钮（×，40 × 40，标识 `drawer-close`），右侧为可自定义按钮（标识 `drawer-confirm`，默认“确定”，仅在有选择型分区时显示并提交选中项）；标题居中。
+- 新增 `trailingButton` 供宿主改文案/图标，`onTrailingButtonTap` 接管点击：设置后按钮始终显示，点击只执行自定义回调、不再默认提交关闭。
+- 测试：`testHeaderPlacesCloseAtTopLeftAndTrailingButtonAtTopRight`、`testCustomTrailingButtonReplacesDefaultConfirm` 等抽屉用例 **8/8 通过**（`drawer-header3.log`）；核心回归见 `core-drawer6.log`；Demo UI 抽屉用例保持通过。

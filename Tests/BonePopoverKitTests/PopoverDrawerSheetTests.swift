@@ -94,6 +94,27 @@ final class PopoverDrawerSheetTests: XCTestCase {
         XCTAssertEqual(sheet.presentationState, .hidden)
     }
 
+    /// 右侧按钮可被宿主接管：自定义回调时即使没有选择型分区也显示，点击只执行回调、不自动关闭。
+    @MainActor
+    func testCustomTrailingButtonReplacesDefaultConfirm() throws {
+        let sheet = BoneDrawerSheetView(title: "阅读设置")
+        sheet.addButton(text: "恢复默认") {}
+        XCTAssertFalse(sheet.hasConfirmOperation)
+
+        var tapped = 0
+        sheet.onTrailingButtonTap = { tapped += 1 }
+        sheet.confirmTitle = "全部恢复"
+        let (window, _, _) = try present(sheet)
+        defer { sheet.dismissPopover(animated: false); window.isHidden = true }
+
+        let trailing = try XCTUnwrap(control("drawer-confirm", in: sheet.baseView) as? UIButton)
+        XCTAssertFalse(trailing.isHidden, "自定义按钮时即使无可提交分区也应显示")
+        XCTAssertEqual(trailing.configuration?.title, "全部恢复")
+        trailing.sendActions(for: .touchUpInside)
+        XCTAssertEqual(tapped, 1)
+        XCTAssertEqual(sheet.presentationState, .presented, "自定义按钮不应自动关闭")
+    }
+
     /// 复现 Demo 配置：7 行 3 分区，检查行数与面板高度不膨胀。
     @MainActor
     func testDemoConfigurationKeepsRowCountStable() throws {
@@ -121,9 +142,9 @@ final class PopoverDrawerSheetTests: XCTestCase {
         XCTAssertLessThan(sheet.baseView.bounds.height, 600)
     }
 
-    /// 标题行：关闭按钮在右上角、确定在左上角，确认回调可触发。
+    /// 标题行：左侧关闭按钮、右侧自定义按钮（默认“确定”），确认回调可触发。
     @MainActor
-    func testHeaderPlacesCloseAtTopRightAndConfirmAtTopLeft() async throws {
+    func testHeaderPlacesCloseAtTopLeftAndTrailingButtonAtTopRight() async throws {
         let sheet = drawer()
         var submitted: [String] = []
         sheet.selectAction { submitted = $0.map(\.text) }
@@ -133,9 +154,9 @@ final class PopoverDrawerSheetTests: XCTestCase {
         let close = try XCTUnwrap(control("drawer-close", in: sheet.baseView))
         let confirm = try XCTUnwrap(control("drawer-confirm", in: sheet.baseView))
         let bounds = sheet.baseView.bounds
-        XCTAssertGreaterThan(close.frame.midX, bounds.midX, "关闭按钮应在右上角")
+        XCTAssertLessThan(close.frame.midX, bounds.midX, "关闭按钮应在左上角")
         XCTAssertLessThan(close.frame.maxY, 80, "关闭按钮应贴近顶部")
-        XCTAssertLessThan(confirm.frame.midX, bounds.midX, "确定按钮应在左上角")
+        XCTAssertGreaterThan(confirm.frame.midX, bounds.midX, "自定义按钮应在右上角")
         XCTAssertFalse(confirm.isHidden)
 
         let dismissed = expectation(description: "confirm closes the drawer")

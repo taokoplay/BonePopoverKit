@@ -92,6 +92,12 @@ open class BoneDrawerSheetView: BonePopoverView {
 
     /// 标题控件；字体、颜色与对齐由 `configuration.contentStyle` 刷新。
     public let titleLabel = UILabel()
+    /// 标题行右侧按钮；默认显示“确定”并提交选中项，宿主可改文案、图标或自行接管点击。
+    public var trailingButton: UIButton { confirmButton }
+    /// 自定义右侧按钮点击行为：设置后不再执行默认的“提交并关闭”，由宿主自行处理。
+    public var onTrailingButtonTap: (() -> Void)? {
+        didSet { applyTrailingButtonVisibility() }
+    }
 
     private struct ButtonModel {
         var text: String
@@ -176,7 +182,14 @@ open class BoneDrawerSheetView: BonePopoverView {
         contentStack.spacing = 0
         contentStack.addArrangedSubview(makeHeaderRow())
         confirmButton.accessibilityIdentifier = "drawer-confirm"
-        confirmButton.addAction(UIAction { [weak self] _ in self?.confirm() }, for: .touchUpInside)
+        confirmButton.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            if let custom = self.onTrailingButtonTap {
+                custom()
+            } else {
+                self.confirm()
+            }
+        }, for: .touchUpInside)
         cancelButton.accessibilityIdentifier = "drawer-close"
         cancelButton.accessibilityLabel = resolvedCloseLabel
         cancelButton.addAction(UIAction { [weak self] _ in self?.hidden() }, for: .touchUpInside)
@@ -219,12 +232,12 @@ open class BoneDrawerSheetView: BonePopoverView {
             }
         }
 
-        confirmButton.isHidden = !hasConfirmOperation
+        applyTrailingButtonVisibility()
         refreshSelection()
         invalidatePopoverLayout()
     }
 
-    /// 标题行：标题居中，右上角关闭按钮，有选择型分区时左上角显示“确定”。
+    /// 标题行：标题居中，左侧关闭按钮（×），右侧自定义按钮（默认“确定”）。
     private func makeHeaderRow() -> UIView {
         let header = UIView()
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -255,14 +268,20 @@ open class BoneDrawerSheetView: BonePopoverView {
             titleLabel.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 56),
             titleLabel.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -56),
             cancelButton.topAnchor.constraint(equalTo: header.topAnchor),
-            cancelButton.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -8),
+            cancelButton.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 8),
             cancelButton.widthAnchor.constraint(equalToConstant: 40),
             cancelButton.heightAnchor.constraint(equalToConstant: 40),
-            confirmButton.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 12),
+            confirmButton.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -12),
             confirmButton.centerYAnchor.constraint(equalTo: cancelButton.centerYAnchor),
             confirmButton.heightAnchor.constraint(equalToConstant: 30)
         ])
         return header
+    }
+
+    /// 右侧按钮：默认只在有选择型分区时出现；宿主自定义回调时始终显示。
+    private func applyTrailingButtonVisibility() {
+        guard isViewLoaded else { return }
+        confirmButton.isHidden = !(hasConfirmOperation || onTrailingButtonTap != nil)
     }
 
     private func makeSectionHeader(_ section: Section, isFirst: Bool) -> UIView {

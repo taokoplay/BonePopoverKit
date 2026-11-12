@@ -245,7 +245,8 @@ drawer.show(from: presenter)
 - 标题相同即同一分区，第二个参数只决定新行是否默认选中；有选择型分区时才出现“确定”按钮，`selectAction` 在点“确定”后回调。
 - `sheetConfig` 可调 `openSectionTitle`、`sectionHeight`、`fontSize`、`cellHeight`、`highlightColor`、`textAlignment`，以及颜色相关：`cellBackgroundColor`（行背景，默认 `.secondarySystemBackground`）、`cellCornerRadius`（分组首尾行圆角，默认 10 点）、`horizontalInset`（行背景距面板边缘，默认 16 点）、`cellSeparatorColor`（行间分隔线，默认系统分隔色）。
 - 面板底色由 `configuration.appearance.backgroundColor` 控制（`.bottomSheet` 预设为 `systemBackground`），与行背景相互独立。
-- 头部布局与阅读器一致：标题居中、**右上角关闭按钮（×）**、有选择型分区时左上角显示“确定”；`confirmTitle` 改确定文案，`closeAccessibilityLabel` 改关闭按钮的辅助功能标签（默认“关闭”）。
+- 头部布局与阅读器一致：标题居中，**左侧关闭按钮（×）**、**右侧自定义按钮**（默认“确定”，有选择型分区时出现并提交选中项）。
+- 右侧按钮可接管：`drawer.trailingButton` 直接改文案/图标，或设置 `drawer.onTrailingButtonTap` 自定义点击（此时按钮始终显示，且不再自动提交关闭）；`confirmTitle`、`closeAccessibilityLabel` 分别改确定文案与关闭按钮的辅助功能标签。
 - 表面沿用 `.bottomSheet`（仅圆顶部两角、无阴影、0.15 秒滑入），默认显示抓手、标题居中。
 
 ### 3.5 Toast 提示

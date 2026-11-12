@@ -31,6 +31,11 @@ public struct PopoverAppearance {
     public var addsShadowToLiquidGlass: Bool = false
     public var backdropColor: UIColor = .black
     public var backdropOpacity: CGFloat = 0.32
+    /// 遮罩是否叠加玻璃模糊，把身后内容虚化。默认 `false`，只压暗，与旧版本一致。
+    /// 与 `backdropOpacity` 独立：开玻璃后仍可把不透明度设为 0，得到纯模糊遮罩。
+    public var backdropGlass: Bool = false
+    /// 玻璃遮罩的模糊材质；默认系统超薄材质，`backdropGlass` 为 `false` 时不起作用。
+    public var backdropGlassStyle: UIBlurEffect.Style = .systemUltraThinMaterial
     public var showsGrabber: Bool = false
 
     public init() {}

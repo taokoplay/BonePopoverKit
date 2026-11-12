@@ -6,6 +6,8 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
     let surface = PopoverSurfaceView()
     let backdrop = UIControl()
     let backdropDimmingView = UIView()
+    /// 可选玻璃遮罩：`appearance.backdropGlass` 打开时把身后内容虚化。
+    let backdropGlassView = UIVisualEffectView(effect: nil)
     let scrollView = UIScrollView()
     private(set) var panelFrame = CGRect.zero
     private var reservedFrames: [CGRect] = []
@@ -51,6 +53,9 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
         // 独立 Window 使用键盘通知坐标避让，避免 UIKeyboardLayoutGuide 的窗口跟踪持有。
         if popover.windowSession == nil { keyboardLayoutGuide.followsUndockedKeyboard = true }
         addSubview(backdrop)
+        // 玻璃层在压暗层下面：先虚化身后内容，再按不透明度压暗。
+        backdrop.addSubview(backdropGlassView)
+        backdropGlassView.isUserInteractionEnabled = false
         backdrop.addSubview(backdropDimmingView)
         backdropDimmingView.isUserInteractionEnabled = false
         // Keep the input control opaque even when its separate visual layer is clear.
@@ -100,6 +105,7 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
                       reduceTransparency: configuration.respectsReduceTransparency && UIAccessibility.isReduceTransparencyEnabled,
                       customBackground: popover.customBackgroundView)
         backdropDimmingView.backgroundColor = configuration.appearance.backdropColor
+        applyBackdropGlass(configuration)
         backdrop.isUserInteractionEnabled = !configuration.allowsEventPenetration
         let dismissLabel = popover.backdropAccessibilityLabel
         backdrop.accessibilityLabel = (dismissLabel?.isEmpty == false ? dismissLabel! : Self.defaultBackdropLabel)
@@ -119,6 +125,7 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
             transition(visible: targetVisible, animated: true, completion: completion)
         } else if popover.presentationState == .presented {
             backdropDimmingView.alpha = backdropOpacity
+            backdropGlassView.alpha = backdropGlassActive ? 1 : 0
         }
         pan.isEnabled = configuration.allowsDragToDismiss && !resolvedSwipeDirections.isEmpty
         updateOutsideTapObservation()
@@ -186,6 +193,7 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
         if resume { freezeAnimation() }
         backdrop.frame = bounds
         backdropDimmingView.frame = backdrop.bounds
+        backdropGlassView.frame = backdrop.bounds
         surface.bounds = CGRect(origin: .zero, size: panelFrame.size)
         surface.center = CGPoint(x: panelFrame.midX, y: panelFrame.midY)
         surface.layoutIfNeeded()
@@ -245,6 +253,7 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
             surface.transform = hidden.transform
             surface.alpha = hidden.opacity
             backdropDimmingView.alpha = 0
+            backdropGlassView.alpha = 0
         }
         hasStarted = true
         let target = visible ? PopoverVisualState() : hidden
@@ -255,6 +264,8 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
             self.surface.transform = target.transform
             self.surface.alpha = target.opacity
             self.backdropDimmingView.alpha = visible ? self.backdropOpacity : 0
+            // 玻璃只跟开关与可见性走，与压暗不透明度无关。
+            self.backdropGlassView.alpha = visible && self.backdropGlassActive ? 1 : 0
         }
         guard duration > 0 else {
             changes()
@@ -286,11 +297,13 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
         let transform = surface.layer.presentation()?.affineTransform() ?? surface.transform
         let opacity = surface.layer.presentation()?.opacity ?? Float(surface.alpha)
         let backdropOpacity = backdropDimmingView.layer.presentation()?.opacity ?? Float(backdropDimmingView.alpha)
+        let glassOpacity = backdropGlassView.layer.presentation()?.opacity ?? Float(backdropGlassView.alpha)
         animator.stopAnimation(true)
         self.animator = nil
         surface.transform = transform
         surface.alpha = CGFloat(opacity)
         backdropDimmingView.alpha = CGFloat(backdropOpacity)
+        backdropGlassView.alpha = CGFloat(glassOpacity)
     }
 
     @objc private func backdropTapped() {
@@ -303,6 +316,29 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
         guard let config = popover?.configuration, config.showsBackdrop else { return 0 }
         let value = config.appearance.backdropOpacity
         return value.isFinite ? min(1, max(0, value)) : 0
+    }
+
+    /// 玻璃遮罩是否生效：受 `showsBackdrop`、`backdropGlass` 与「减弱透明度」共同约束。
+    private var backdropGlassActive: Bool {
+        guard let config = popover?.configuration, config.showsBackdrop else { return false }
+        guard config.appearance.backdropGlass else { return false }
+        return !(config.respectsReduceTransparency && UIAccessibility.isReduceTransparencyEnabled)
+    }
+
+    /// 玻璃只看开关，不受 `backdropOpacity` 影响：不透明度为 0 时得到纯模糊遮罩。
+    private func applyBackdropGlass(_ configuration: PopoverConfiguration) {
+        let active = configuration.showsBackdrop && configuration.appearance.backdropGlass
+            && !(configuration.respectsReduceTransparency && UIAccessibility.isReduceTransparencyEnabled)
+        backdropGlassView.isHidden = !active
+        if active {
+            backdropGlassView.effect = UIBlurEffect(style: configuration.appearance.backdropGlassStyle)
+            if popover?.presentationState == .presented, animator == nil, dragSession == nil {
+                backdropGlassView.alpha = 1
+            }
+        } else {
+            backdropGlassView.effect = nil
+            backdropGlassView.alpha = 0
+        }
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
@@ -469,6 +505,7 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
             surface.transform = transform
             let extent = max(1, direction.vector.x == 0 ? panelFrame.height : panelFrame.width)
             backdropDimmingView.alpha = backdropOpacity * max(0, 1 - distance / extent)
+            backdropGlassView.alpha = backdropGlassActive ? max(0, 1 - distance / extent) : 0
         case .ended, .cancelled, .failed:
             let outwardVelocity = direction.projection(of: velocity)
             let configuredThreshold = popover.configuration.swipeThreshold

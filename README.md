@@ -176,6 +176,8 @@ BoneToastView(message: "正在加载", type: .loading, style: .center).show(from
 | `addsShadowToLiquidGlass` | 玻璃额外阴影 | `false` | 是否在原生玻璃系统阴影外叠加上述自定义阴影。 |
 | `backdropColor` | 遮罩颜色 | `.black` | 面板外部背景遮罩的颜色。 |
 | `backdropOpacity` | 遮罩不透明度 | 0.32 | 遮罩的视觉浓度，不控制点击是否穿透。 |
+| `backdropGlass` | 玻璃遮罩 | `false` | 是否给遮罩叠加玻璃模糊；与不透明度独立，可只虚化不压暗。 |
+| `backdropGlassStyle` | 玻璃遮罩材质 | `.systemUltraThinMaterial` | 玻璃开启时的模糊材质。 |
 | `showsGrabber` | 显示抓手 | `false` | 是否在面板内容上方显示拖拽指示条。 |
 
 ## 任意内容与预设布局

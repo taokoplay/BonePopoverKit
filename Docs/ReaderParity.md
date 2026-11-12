@@ -39,7 +39,7 @@ alert.configuration.animation = .scale(0.8)
 | --- | --- | --- |
 | `baseView.layer.cornerRadius = 16` | `appearance.cornerRadius` | 24（`.bottomSheet` 为 16） |
 | sheet 只圆顶部两角 | `appearance.maskedCorners` | 四角（`.bottomSheet` 仅上两角） |
-| 遮罩 `.black.withAlphaComponent(0.6)`，且只有开/关开关 | `appearance.backdropColor` / `backdropOpacity` / `showsBackdrop` | `.black` / 0.32 / 显示 |
+| 遮罩 `.black.withAlphaComponent(0.6)`，且只有开/关开关 | `appearance.backdropColor` / `backdropOpacity` / `backdropGlass` / `showsBackdrop` | `.black` / 0.32 / 不虚化 / 显示 |
 | 滑动阈值 100、方向 OptionSet | `swipeThreshold` / `allowedSwipeDirections` | 100 / `.automatic` |
 | 窗口层级 `alert - 1` | `window.level` | `.alert - 1` |
 | 状态栏/方向/自动旋转（阅读器可配） | 从宿主派生（`PopoverWindowAppearanceContext`） | 继承宿主 |

@@ -404,6 +404,16 @@ popover.show(from: presenter)
 
 `backgroundColor` 用于纯色表面和降低透明度时的回退；它不会给原生玻璃加一层实色填充。玻璃染色使用 `tintColor`，在模糊回退路径上不保证相同染色效果。
 
+
+遮罩有两个独立开关：`backdropOpacity` 控制压暗浓度，`backdropGlass` 选择是否把身后内容虚化。两者组合即「只压暗 / 压暗+虚化 / 只虚化」：
+
+```swift
+popover.configuration.appearance.backdropOpacity = 0      // 不压暗
+popover.configuration.appearance.backdropGlass = true    // 只留玻璃虚化
+popover.configuration.appearance.backdropGlassStyle = .systemThinMaterial
+```
+
+`showsBackdrop = false` 会同时关掉压暗与虚化（遮罩整体关闭）；开启「减弱透明度」且 `respectsReduceTransparency` 为 `true`（默认）时玻璃不生效，只剩压暗，与系统的模糊降级一致。
 ### 5.2 外观字段
 
 字段通过 `configuration.appearance` 访问，下表默认值来自 `PopoverAppearance()`。`.classic` 将材质设为纯色、圆角设为 16 点；`.bottomSheet` 采用阅读器默认样式——纯色表面、`systemBackground`、圆角 16 点仅顶部两角、无抓手、无背景遮罩且不叠加阴影。
@@ -424,6 +434,8 @@ popover.show(from: presenter)
 | `addsShadowToLiquidGlass` | 玻璃额外阴影 | `false` | 是否在原生玻璃系统阴影外叠加上述自定义阴影。 |
 | `backdropColor` | 遮罩颜色 | `.black` | 面板外部背景遮罩的颜色。 |
 | `backdropOpacity` | 遮罩不透明度 | 0.32 | 遮罩的视觉浓度，不控制点击是否穿透。 |
+| `backdropGlass` | 玻璃遮罩 | `false` | 为遮罩叠加玻璃模糊，把身后内容虚化；默认关闭，只压暗。 |
+| `backdropGlassStyle` | 玻璃遮罩材质 | `.systemUltraThinMaterial` | `backdropGlass` 为 `true` 时的模糊材质；关闭时不生效。 |
 | `showsGrabber` | 显示抓手 | `false` | 是否在面板内容上方显示拖拽指示条。 |
 
 ### 5.3 玻璃边缘和阴影
@@ -540,6 +552,8 @@ alert.show(from: presenter)
 | `backdropAccessibilityLabel`（在 `BonePopoverView` 上） | 遮罩辅助功能标签 | `nil` | 默认 `NSLocalizedString("Dismiss")`；赋值后立即生效。 |
 | `appearance.backdropColor` | 遮罩颜色 | `.black` | 外部背景遮罩的颜色。 |
 | `appearance.backdropOpacity` | 遮罩不透明度 | 0.32 | 遮罩的视觉浓度；顶部通知预设为 0.12。 |
+| `appearance.backdropGlass` | 玻璃遮罩 | `false` | 是否把遮罩换成玻璃模糊；关闭时行为与旧版本一致。 |
+| `appearance.backdropGlassStyle` | 玻璃遮罩材质 | `.systemUltraThinMaterial` | 玻璃开启时使用的模糊材质。 |
 | `dismissOnBackdropTap` | 外部点击关闭 | `true` | 不穿透时，点击面板外部是否请求关闭；输入框预设为 `false`。 |
 | `allowsEventPenetration` | 外部触摸穿透 | `false` | 是否让面板外部触摸进入底层页面或窗口。 |
 | `autoHideWhenPenetrated` | 穿透后关闭 | `false` | 穿透模式下，真实点击结束后是否同时请求关闭。 |

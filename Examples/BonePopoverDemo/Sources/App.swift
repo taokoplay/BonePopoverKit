@@ -53,7 +53,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 }
 
 final class DemoViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
-    private let scenes = ["居中确认框", "输入框与键盘", "底部操作列表", "顶部通知", "侧边面板", "长内容滚动", "注入竖向折叠", "注入横向折叠", "自定义 Alert 尺寸", "Alert 长内容上限", "Alert 竖排按钮", "Alert 窄空间", "自定义字体与间距", "即时调整内容样式", "独立 Window 与多 Scene", "Toast 顶部长条", "Toast 底部长条", "Toast 中间方块", "抽屉式选择"]
+    private let scenes = ["居中确认框", "输入框与键盘", "底部操作列表", "顶部通知", "侧边面板", "长内容滚动", "注入竖向折叠", "注入横向折叠", "自定义 Alert 尺寸", "Alert 长内容上限", "Alert 竖排按钮", "Alert 窄空间", "自定义字体与间距", "即时调整内容样式", "独立 Window 与多 Scene", "Toast 顶部长条", "Toast 底部长条", "Toast 中间方块", "抽屉式选择", "玻璃遮罩"]
     /// 每个场景一句话说明，直接告诉使用者这里该看什么。
     private let sceneDetails = [
         "标题、正文、确认/取消，可调对齐与按钮排列",
@@ -74,7 +74,8 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         "顶部长条，2 秒自动关，允许穿透",
         "底部长条，可点底层页面",
         "中间方块，160–280 点随内容增大",
-        "阅读器式抽屉：分组列表、单选、带抓手"
+        "阅读器式抽屉：分组列表、单选、带抓手",
+        "玻璃模糊遮罩：透明度与虚化各自可调"
     ]
     private let sceneIcons = [
         "rectangle.center.inset.filled", "keyboard", "list.bullet.rectangle",
@@ -83,13 +84,13 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         "arrow.up.and.down", "rectangle.grid.1x2", "arrow.down.right.and.arrow.up.left",
         "textformat.size", "slider.horizontal.3", "macwindow.on.rectangle",
         "rectangle.topthird.inset.filled", "rectangle.bottomthird.inset.filled", "square.inset.filled",
-        "list.bullet.below.rectangle"
+        "list.bullet.below.rectangle", "aqi.medium"
     ]
     /// 场景分组；scene-N 编号保持不变，只调整展示顺序。
     private let groups: [(title: String, indices: [Int])] = [
         ("常用弹窗", [0, 1, 2, 18, 3, 4]),
         ("布局与保留区域", [5, 6, 7, 8, 9, 10, 11]),
-        ("内容样式", [12, 13]),
+        ("内容样式", [12, 13, 19]),
         ("独立窗口", [14]),
         ("Toast", [15, 16, 17])
     ]
@@ -107,7 +108,7 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private let styleControl = UISegmentedControl(items: ["自动", "经典", "毛玻璃", "液态玻璃", "品牌色"])
     private let motionControl = UISegmentedControl(items: ["默认", "淡入", "缩放", "弹簧", "自定义"])
-    private let backdropControl = UISegmentedControl(items: ["预设", "显示遮罩", "隐藏遮罩"])
+    private let backdropControl = UISegmentedControl(items: ["预设", "显示遮罩", "隐藏遮罩", "玻璃遮罩"])
     private let penetrationControl = UISegmentedControl(items: ["预设", "允许穿透", "拦截触摸"])
     /// `--demo-scene` 指定的场景号，等首页真正显示后再弹。
     private var pendingLaunchScene: Int?
@@ -453,6 +454,30 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
                 : selectedToastDuration
             popover = BoneToastView(message: toastMessage(style: style), type: selectedToastType,
                                     style: style, duration: duration)
+        case 19:
+            let backdropSheet = BoneActionSheetView(
+                title: "玻璃遮罩",
+                message: "背后内容被虚化；不透明度单独控制压暗程度，两者可以自由组合。",
+                actions: [
+                    PopoverAction("切换玻璃（开 / 关）", image: UIImage(systemName: "aqi.medium"),
+                                  dismissesPopover: false) { [weak self] in
+                        guard let self, let popover = self.currentPopover else { return }
+                        popover.configuration.appearance.backdropGlass.toggle()
+                        self.record(popover.configuration.appearance.backdropGlass ? "玻璃遮罩：开" : "玻璃遮罩：关")
+                    },
+                    PopoverAction("不透明度 0（纯模糊）", dismissesPopover: false) { [weak self] in
+                        self?.setBackdropOpacity(0)
+                    },
+                    PopoverAction("不透明度 0.12", dismissesPopover: false) { [weak self] in
+                        self?.setBackdropOpacity(0.12)
+                    },
+                    PopoverAction("不透明度 0.32", dismissesPopover: false) { [weak self] in
+                        self?.setBackdropOpacity(0.32)
+                    }
+                ])
+            backdropSheet.configuration.appearance.backdropGlass = true
+            popover = backdropSheet
+            return
         default:
             let title = scenes[index]
             let message = [5, 8, 9].contains(index) ? String(repeating: "内容会根据当前窗口宽度换行，超出可用高度时可以滚动。\n\n", count: 10)
@@ -516,10 +541,29 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         popover.show(from: navigationController ?? self)
     }
 
+    /// 场景 19 用：实时改遮罩不透明度，弹窗保持打开以便对比。
+    private func setBackdropOpacity(_ value: CGFloat) {
+        guard let popover = currentPopover else { return }
+        popover.configuration.showsBackdrop = value > 0
+        popover.configuration.appearance.backdropOpacity = value
+        record(String(format: "遮罩不透明度：%.2f", Double(value)))
+    }
+
     /// 首页的遮罩/穿透选项；选「预设」时保持各预设自带默认值。
     private func applyBehavior(to popover: BonePopoverView) {
-        if backdropControl.selectedSegmentIndex != 0 {
-            popover.configuration.showsBackdrop = backdropControl.selectedSegmentIndex == 1
+        switch backdropControl.selectedSegmentIndex {
+        case 1:
+            popover.configuration.showsBackdrop = true
+        case 2:
+            popover.configuration.showsBackdrop = false
+        case 3:
+            popover.configuration.showsBackdrop = true
+            popover.configuration.appearance.backdropGlass = true
+        default:
+            break
+        }
+        if backdropControl.selectedSegmentIndex != 3 {
+            popover.configuration.appearance.backdropGlass = false
         }
         if penetrationControl.selectedSegmentIndex != 0 {
             popover.configuration.allowsEventPenetration = penetrationControl.selectedSegmentIndex == 1

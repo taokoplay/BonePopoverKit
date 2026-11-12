@@ -360,3 +360,13 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - 新增用例 `testConfirmButtonSharesCloseButtonStyle`：同一界面下实测关闭按钮 `40×40`、确定按钮 `42×40`，高度完全一致、`cornerStyle` 相同、确定按钮无图标且标题为“确定”。
 - Demo 增加 `--demo-scene <n>` 启动参数（`DemoViewController.viewDidAppear` 中首次呈现），方便截图与排查时直接打开指定场景。
 - 测试：核心 **93/93 通过**（`core-confirmcircle.log`），Demo UI 用例 **5/5 通过**（`ui-drawer14.log`）。
+
+## 遮罩玻璃（透明度可调 + 可选虚化）
+
+- 遮罩拆成两个互不影响的旋钮：`appearance.backdropOpacity`（已有，默认 0.32）管压暗浓度，新增 `appearance.backdropGlass`（默认 `false`）选择是否叠加玻璃模糊，`appearance.backdropGlassStyle`（默认 `.systemUltraThinMaterial`）指定模糊材质。
+- 实现：`PopoverHostView` 新增 `backdropGlassView`（`UIVisualEffectView`），垫在压暗层下面；玻璃只跟「开关 + 是否可见」走，透明度变化不影响虚化强度，因此 `backdropOpacity = 0` + `backdropGlass = true` 就是纯模糊遮罩。
+- 与既有开关的关系：`showsBackdrop = false` 一并关掉虚化；`respectsReduceTransparency`（默认 `true`）且系统开启「减弱透明度」时玻璃不生效，只剩压暗，和表面材质的降级规则一致。
+- 动画：进出场、拖动关闭时玻璃层与压暗层同步淡入淡出（拖动按位移比例衰减），打断动画会冻结当前实际透明度，不出现玻璃瞬间跳满。
+- 新增 `PopoverBackdropGlassTests`（4 项）：默认不画玻璃层、开启后挂上模糊且不改变 0.32 压暗、`backdropOpacity = 0` 仍是纯模糊、`showsBackdrop = false` 连玻璃一起关、材质与颜色可配置并可关闭。
+- Demo：首页「遮罩」控制新增第 4 项「玻璃遮罩」；新增场景 20「玻璃遮罩」，可在弹窗内切换玻璃开关与 0 / 0.12 / 0.32 三档不透明度。
+- 测试：核心 **97/97 通过**（`popover-glass1.log`，含 4 项新用例）。

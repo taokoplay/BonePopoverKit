@@ -211,6 +211,7 @@ open class BoneDrawerSheetView: BonePopoverView {
         applyPopoverTypography(style, title: titleLabel, message: typographyPlaceholder,
                                buttons: [confirmButton, cancelButton], traits: traitCollection)
         contentStack.directionalLayoutMargins = style.resolvedContentInsets
+        applyPopoverCloseButtonStyle(cancelButton, style: style)
         rebuildRows()
     }
 
@@ -252,11 +253,8 @@ open class BoneDrawerSheetView: BonePopoverView {
         header.addSubview(titleLabel)
 
         cancelButton.translatesAutoresizingMaskIntoConstraints = false
-        var closeConfig = UIButton.Configuration.plain()
-        closeConfig.image = UIImage(systemName: "xmark",
-                                    withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold))
-        closeConfig.baseForegroundColor = .secondaryLabel
-        cancelButton.configuration = closeConfig
+        // 与操作列表共用同一套向下箭头外观（iOS 26+ 液态玻璃圆圈）。
+        applyPopoverCloseButtonStyle(cancelButton, style: configuration.contentStyle)
         cancelButton.accessibilityIdentifier = "drawer-close"
         cancelButton.accessibilityLabel = resolvedCloseLabel
         header.addSubview(cancelButton)
@@ -277,8 +275,8 @@ open class BoneDrawerSheetView: BonePopoverView {
             titleLabel.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -56),
             cancelButton.topAnchor.constraint(equalTo: header.topAnchor),
             cancelButton.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 8),
-            cancelButton.widthAnchor.constraint(equalToConstant: 40),
-            cancelButton.heightAnchor.constraint(equalToConstant: 40),
+            cancelButton.widthAnchor.constraint(equalToConstant: configuration.contentStyle.resolvedCloseButtonSize),
+            cancelButton.heightAnchor.constraint(equalToConstant: configuration.contentStyle.resolvedCloseButtonSize),
             confirmButton.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -12),
             confirmButton.centerYAnchor.constraint(equalTo: cancelButton.centerYAnchor),
             confirmButton.heightAnchor.constraint(equalToConstant: 30)

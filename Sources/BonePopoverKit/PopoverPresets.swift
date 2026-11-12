@@ -483,25 +483,7 @@ open class BoneActionSheetView: BonePopoverView {
     /// 关闭按钮外观：默认 12 点向下箭头；iOS 26+ 使用液态玻璃圆圈按钮，早期系统回退半透明圆圈。
     /// `contentStyle.closeButtonImage` 可替换图标，nil 时使用内置箭头。
     private func applyCloseButtonStyle(_ style: PopoverContentStyle) {
-        let image = style.closeButtonImage ?? UIImage(
-            systemName: "chevron.down",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .medium))
-        #if compiler(>=6.2)
-        if #available(iOS 26.0, *) {
-            var configuration = UIButton.Configuration.glass()
-            configuration.cornerStyle = .capsule
-            configuration.image = image
-            closeButton.configuration = configuration
-            closeButton.tintColor = style.titleColor
-            return
-        }
-        #endif
-        closeButton.configuration = nil
-        closeButton.setImage(image, for: .normal)
-        closeButton.tintColor = style.titleColor
-        closeButton.backgroundColor = style.titleColor.withAlphaComponent(0.08)
-        closeButton.layer.cornerRadius = style.resolvedCloseButtonSize / 2
-        closeButton.clipsToBounds = true
+        applyPopoverCloseButtonStyle(closeButton, style: style)
     }
 
     /// 命中区跟随 contentStyle 变化；标题前置约束按按钮实际宽度计算，尺寸变化后重新布局。
@@ -532,7 +514,31 @@ func configurePopoverLabel(_ label: UILabel) {
     label.setContentCompressionResistancePriority(.required, for: .vertical)
 }
 
+/// 关闭按钮（向下箭头）的统一外观：iOS 26+ 液态玻璃圆圈，早期系统为标题色 8% 半透明圆圈。
+/// 操作列表与抽屉共用，保证两处视觉一致；`closeButtonImage` 可替换图标。
 @MainActor
+func applyPopoverCloseButtonStyle(_ button: UIButton, style: PopoverContentStyle) {
+    let image = style.closeButtonImage ?? UIImage(
+        systemName: "chevron.down",
+        withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .medium))
+    #if compiler(>=6.2)
+    if #available(iOS 26.0, *) {
+        var configuration = UIButton.Configuration.glass()
+        configuration.cornerStyle = .capsule
+        configuration.image = image
+        button.configuration = configuration
+        button.tintColor = style.titleColor
+        return
+    }
+    #endif
+    button.configuration = nil
+    button.setImage(image, for: .normal)
+    button.tintColor = style.titleColor
+    button.backgroundColor = style.titleColor.withAlphaComponent(0.08)
+    button.layer.cornerRadius = style.resolvedCloseButtonSize / 2
+    button.clipsToBounds = true
+}
+
 func configurePopoverButton(_ button: UIButton, title: String, prominent: Bool) {
     var configuration = prominent ? UIButton.Configuration.filled() : .tinted()
     configuration.title = title

@@ -169,6 +169,8 @@ final class PopoverDrawerSheetTests: XCTestCase {
         let confirm = try XCTUnwrap(control("drawer-confirm", in: sheet.baseView))
         let bounds = sheet.baseView.bounds
         XCTAssertLessThan(close.frame.midX, bounds.midX, "关闭按钮应在左上角")
+        let closeImage = (close as? UIButton)?.configuration?.image ?? (close as? UIButton)?.image(for: .normal)
+        XCTAssertNotNil(closeImage, "关闭按钮应使用向下箭头（与操作列表一致）")
         XCTAssertLessThan(close.frame.maxY, 80, "关闭按钮应贴近顶部")
         XCTAssertGreaterThan(confirm.frame.midX, bounds.midX, "自定义按钮应在右上角")
         XCTAssertFalse(confirm.isHidden)

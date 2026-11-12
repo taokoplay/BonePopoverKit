@@ -344,3 +344,9 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
   1. 多选/需要统一提交：`showsConfirmButton = true` → 点右侧按钮执行 `confirm()`，按分区顺序把选中项通过 `selectAction` 回传并关闭；
   2. 单选/立即执行：`.normal("")` 行 + 每行 `callback`，点行即回调并关闭，不显示右侧按钮（旧实现里的用法）。
 - 测试：新增 `testTrailingButtonHiddenByDefault`，并把提交类用例改为显式打开按钮；抽屉用例 **9/9 通过**（`drawer-hidden.log`）；Demo 场景 18 打开 `showsConfirmButton` 演示“确定”提交，UI 用例 **1/1 通过**（`ui-drawer9.log`）。
+
+## 抽屉关闭按钮改为向下箭头（与操作列表一致）
+
+- 关闭按钮外观抽成共用实现 `applyPopoverCloseButtonStyle(_:style:)`：操作列表与抽屉同一套观感（12 点 `chevron.down`、iOS 26+ 液态玻璃圆圈、早期标题色 8% 圆圈），尺寸取 `contentStyle.resolvedCloseButtonSize`，图标可被 `contentStyle.closeButtonImage` 覆盖。
+- 抽屉头部由 `xmark` 改为该向下箭头，位置仍在左侧；`applyContentStyle` 时同步刷新外观。
+- 测试：抽屉用例（含新增“关闭按钮应有箭头图标”断言）与预设布局用例 **14/14 通过**（`drawer-closeicon2.log`），核心 **92/92**（`core-drawer8.log`），Demo UI 抽屉用例 **1/1**（`ui-drawer10.log`）。

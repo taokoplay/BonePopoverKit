@@ -98,9 +98,6 @@ public struct PopoverConfiguration {
     /// 界面样式覆盖，默认 `.unspecified` 跟随宿主与系统，行为与旧版本一致。
     /// 需要固定浅色/深色的读者弹层时设为 `.light` / `.dark`。
     public var interfaceStyle: UIUserInterfaceStyle = .unspecified
-    /// 内置按钮标题；nil 字段沿用 SDK 默认文案（确认框为“确认”“取消”），
-    /// 宿主可在此传入已本地化的文字。显示期间修改会立即生效并重新测量。
-    public var buttonTitles = PopoverButtonTitles()
     /// 独立窗口的创建选项；每次展示保存快照，页面模式不使用这些选项。
     public var window = PopoverWindowConfiguration()
     public var layout = PopoverLayout()
@@ -167,19 +164,5 @@ public struct PopoverConfiguration {
         value.layout.height = .fill
         value.animation = .slide(.trailing)
         return value
-    }
-}
-
-/// 内置按钮标题。所有字段默认为 nil，表示沿用 SDK 默认文案。
-public struct PopoverButtonTitles: Equatable {
-    /// 确认按钮标题；nil 使用“确认”。
-    public var confirm: String?
-    /// 取消按钮标题；nil 使用“取消”。
-    public var cancel: String?
-
-    public init(confirm: String? = nil, cancel: String? = nil) {
-        // 空字符串视为无效输入，回退默认文案。
-        self.confirm = confirm.flatMap { $0.isEmpty ? nil : $0 }
-        self.cancel = cancel.flatMap { $0.isEmpty ? nil : $0 }
     }
 }

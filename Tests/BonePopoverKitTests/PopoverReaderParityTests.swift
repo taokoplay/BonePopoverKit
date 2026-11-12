@@ -102,4 +102,38 @@ final class PopoverReaderParityTests: XCTestCase {
         XCTAssertEqual(host.overrideUserInterfaceStyle, .unspecified, "取消覆盖后应恢复继承宿主")
         XCTAssertEqual(alert.overrideUserInterfaceStyle, .unspecified)
     }
+
+    /// 操作列表：取消文案与关闭标签由自己的属性控制，默认不变。
+    @MainActor
+    func testActionSheetCancelTitleAndCloseLabel() throws {
+        let sheet = BoneActionSheetView(title: "项目操作", actions: [PopoverAction("分享")], cancelTitle: "返回")
+        let (window, _, _) = try present(sheet)
+        defer { sheet.dismissPopover(animated: false); window.isHidden = true }
+        XCTAssertEqual(sheet.cancelButton.configuration?.title, "返回", "初始化参数仍是默认来源")
+        XCTAssertEqual(sheet.closeButton.accessibilityLabel, "关闭")
+        XCTAssertNil(sheet.cancelTitle)
+
+        sheet.cancelTitle = "Dismiss"
+        sheet.closeAccessibilityLabel = "Close"
+        XCTAssertEqual(sheet.cancelButton.configuration?.title, "Dismiss")
+        XCTAssertEqual(sheet.closeButton.accessibilityLabel, "Close")
+
+        sheet.cancelTitle = nil
+        XCTAssertEqual(sheet.cancelButton.configuration?.title, "返回", "取消覆盖后回到初始化文案")
+    }
+
+    /// Toast 类型描述与遮罩标签：各自属性可覆盖，默认仍是内置中文/英文 key。
+    @MainActor
+    func testToastTypeDescriptionAndBackdropLabelAreConfigurable() throws {
+        let toast = BoneToastView(message: "已保存", type: .success, style: .top, duration: 0)
+        let (window, _, host) = try present(toast)
+        defer { toast.dismissPopover(animated: false); window.isHidden = true }
+        XCTAssertEqual(toast.messageLabel.accessibilityValue, "成功")
+        XCTAssertEqual(host.backdrop.accessibilityLabel, NSLocalizedString("Dismiss", comment: "Dismiss popover"))
+
+        toast.typeDescriptions.success = "Success"
+        toast.backdropAccessibilityLabel = "Close overlay"
+        XCTAssertEqual(toast.messageLabel.accessibilityValue, "Success")
+        XCTAssertEqual(host.backdrop.accessibilityLabel, "Close overlay")
+    }
 }

@@ -264,10 +264,27 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 
 对照 ParsingBook `Custom/BonePopoverView`，把“阅读器里写死、SDK 也没有入口”的值补成可选配置，逐项对照见 [阅读器对照](ReaderParity.md)。
 
-- `configuration.buttonTitles` + `BoneAlertView.confirmTitle` / `cancelTitle`：默认 `nil` → “确认”“取消”；空字符串视为未配置；显示期间修改立即生效并重新测量。实现上只在 `buttonTitles` 快照变化时改写按钮，保留宿主直接修改 `button.configuration?.title` 的旧行为。
+- `BoneAlertView.confirmTitle` / `cancelTitle`：默认 `nil` → “确认”“取消”；空字符串视为未配置；赋值后立即改写按钮并重新测量，宿主直接修改 `button.configuration?.title` 的旧写法不被样式刷新覆盖。
 - `configuration.interfaceStyle`：默认 `.unspecified` 跟随宿主与系统；`.light` / `.dark` 同时作用于 `PopoverHostView` 与弹层自身，设回 `.unspecified` 恢复继承。
 - `contentStyle.closeButtonImage` / `.closeButtonSize`：默认 `nil` / 40 点；样式刷新不再用内置箭头覆盖宿主自定义图标，尺寸变化同步宽高约束。
 - `PopoverAnimation.scale(_:duration:dampingRatio:)`：比例夹在 0...1，`.scale` 仍等价 0.92 / 0.25 秒。
 - 过程记录：首版每次样式刷新回写默认标题，导致 `testAutomaticUsesColumnForNarrowSpaceAndLongButtonTitles` 与 `testLiveStyleChangeRemeasuresAndPreservesInputFocusTextAndButtonContent` 2 项回归（`core-parity.log`）；改为按配置快照比较后修复。
 - 核心回归 **79/79 通过**（`core-parity2.log`，新增 5 项见 `PopoverReaderParityTests.swift`；新增用例首轮 `parity.log` 5/5）。
 - 未采纳的部分（队列优先级、业务列表高度、图标 bundle、状态栏/方向锁）与理由见 [阅读器对照](ReaderParity.md) 第 3 节。
+
+## P0 复核：iOS 27.1 连续输入后列表不可点击
+
+历史记录（见「材质外观与轮廓」轮次）：Duo / iOS 27.1 在输入框确认后弹窗已移除，但后续列表项不可点击，失败层级里存在额外全屏空窗口且持有方未确认。
+
+- 本轮在同一设备（iPhone Duo `8E80DEE0`，iOS 27.1）用既有用例 `testConfirmationInputAndLiveStyleSwitch` 复测 **1/1 通过**（`input-tap-27.log` / `InputTap27.xcresult`）。
+- 按“前置 Window 用例可能留下窗口”的线索，再连跑 `PopoverWindowUITests/testTwoBusinessWindowsFixedAndAutomaticStackingWithOutOfOrderClose` + 上述用例，**2/2 通过**（`input-after-window.log`），未出现额外窗口导致的点击失败。
+- 结论：当前版本无法复现该问题。不能据此证明历史根因已修（期间有多次关闭清理与宿主失效改动），也不再把它列为开放阻塞；改为“历史记录 + 由该用例持续覆盖”。若再次出现，按失败层级中的窗口持有方继续定位。
+
+## 内置文案收口（P0-3 / P1-4）
+
+- 文案按组件拆分，不进入 `PopoverConfiguration`：`BoneAlertView.confirmTitle/cancelTitle`、`BoneActionSheetView.cancelTitle/closeAccessibilityLabel`、`BoneToastView.typeDescriptions`、`BonePopoverView.backdropAccessibilityLabel`；默认全部保持原文字（“确认”“取消”“关闭”、`NSLocalizedString("Dismiss")`、Toast 四类中文 key）。
+- 操作列表：`sheet.cancelTitle` 支持运行期读写，优先级为自身属性 → 初始化参数 → “取消”；关闭按钮辅助功能标签走 `sheet.closeAccessibilityLabel`。
+- 遮罩标签走 `popover.backdropAccessibilityLabel`；Toast 类型朗读描述走 `toast.typeDescriptions`，赋值后立即刷新辅助功能值。
+- 改写策略：只在属性赋值或视图加载时写按钮，样式刷新不回写文案，宿主直接修改 `button.configuration?.title` 的旧行为继续保留。
+- 核心回归 **81/81 通过**（`core-strings.log`；`PopoverReaderParityTests` 扩到 7 项，新增操作列表文案与 Toast/遮罩标签 2 项）。
+- UI 复测：Demo `testActionSheetUsesReaderDefaultSheetLayout` 在 Duo/iOS 27.1 通过；`PopoverToastUITests/testTypesAndDurationCanChangeWhileVisible`（覆盖 Toast 类型描述朗读值）在 **iPhone 13 Pro / iOS 26.0** 通过（`ui-toast-26.log`），在同机 Duo / iOS 27.1 上两次运行分别失败于导航栏 `toast-options` 元素查找与朗读值等待（失败位置不同，`ui-strings.log` / `ui-toast-retry.log`），暂判为模拟器负载抖动，不记为通过；字符串行为以 7 项单元测试为准。

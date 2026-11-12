@@ -9,17 +9,18 @@
 
 | 阅读器中的写死值 | 位置（阅读器） | SDK 新增入口 | 默认值（= 旧行为） |
 | --- | --- | --- | --- |
-| 确认 / 取消按钮文案 | SDK `Sources/BonePopoverKit/PopoverPresets.swift:116-117` 写死；阅读器由各 alert 子类自建按钮 | `configuration.buttonTitles.confirm` / `.cancel`；`alert.confirmTitle` / `alert.cancelTitle` | `nil` → “确认”“取消” |
+| 确认 / 取消按钮文案 | SDK `Sources/BonePopoverKit/PopoverPresets.swift:116-117` 写死；阅读器由各 alert 子类自建按钮 | `alert.confirmTitle` / `alert.cancelTitle`；`sheet.cancelTitle` | `nil` → “确认”“取消” |
 | 关闭按钮图标（bundle 图片） | 各 sheet 子类 `backButton` | `contentStyle.closeButtonImage` | `nil` → 12 点 medium `chevron.down` |
 | 关闭按钮命中区 40 × 标题高 | 各 sheet 子类 `width(40)` | `contentStyle.closeButtonSize` | `40` 点 |
 | 缩放动画固定 0.8 + 淡出 | `BonePopoverView.swift:117` | `PopoverAnimation.scale(0.8)` | `.scale` = 0.92 / 0.25 秒 |
 | 全局强制浅色（`BoneThemeManager`） | `BonePopoverView.swift:29-47` | `configuration.interfaceStyle` | `.unspecified`（跟随宿主与系统） |
+| 关闭按钮标签、遮罩标签、Toast 类型描述（写死中文/英文 key） | SDK `PopoverPresets.swift:380`、`PopoverHostView.swift:59`、`BoneToastView.swift:211` 写死 | `sheet.closeAccessibilityLabel`、`popover.backdropAccessibilityLabel`、`toast.typeDescriptions` | `nil` → “关闭” / `NSLocalizedString("Dismiss")` / “成功”“失败”“提示”“加载中” |
 
 用法示例：
 
 ```swift
 let alert = BoneAlertView(title: "删除项目", message: "删除后不可恢复") {}
-alert.confirmTitle = "OK"          // 或 alert.configuration.buttonTitles.confirm = "OK"
+alert.confirmTitle = "OK"
 alert.cancelTitle = "Cancel"
 alert.configuration.interfaceStyle = .light   // 固定浅色；不设置则跟随宿主
 alert.show(from: presenter)
@@ -57,7 +58,11 @@ alert.configuration.animation = .scale(0.8)
 
 ## 4. 兼容性
 
-- 新增字段全部带默认值：`PopoverButtonTitles()`、`.unspecified`、`closeButtonSize = 40`、`closeButtonImage = nil`、`PopoverAnimation.scale` 仍为 0.92。
-- `configuration.buttonTitles` 修改会立即刷新已加载的按钮并重新测量面板；`closeButtonSize` 会同步宽高约束与标题前置约束。
+- 新增字段全部带默认值：`PopoverStrings()`、`.unspecified`、`closeButtonSize = 40`、`closeButtonImage = nil`、`PopoverAnimation.scale` 仍为 0.92。
+- 各组件文案属性修改会立即刷新；按钮文案变化会重新测量面板，`closeButtonSize` 会同步宽高约束与标题前置约束。
 - `interfaceStyle` 取消覆盖（设回 `.unspecified`）会同时把宿主视图与弹层恢复为继承，不残留固定样式。
 - 验证：`Tests/BonePopoverKitTests/PopoverReaderParityTests.swift`（5 项）覆盖上述默认值与覆盖路径；记录见 [Validation](Validation.md)。
+
+## 5. 文案收口（补充）
+
+原先写死的辅助功能与 Toast 文案由各自组件暴露属性：`sheet.closeAccessibilityLabel`、`popover.backdropAccessibilityLabel`、`toast.typeDescriptions`，不设置时保持原文字。操作列表取消按钮：`sheet.cancelTitle = "Dismiss"`，未设置时回退初始化参数，再回退“取消”。

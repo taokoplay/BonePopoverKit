@@ -65,49 +65,42 @@ open class BoneAlertView: BonePopoverView {
         set { textField.text = newValue }
     }
 
-    /// 确认按钮标题；nil 表示沿用 SDK 默认的“确认”，读取时返回当前生效文字。
+    /// 确认按钮标题；nil 表示沿用 SDK 默认的“确认”，赋值后立即生效并重新测量。
     public var confirmTitle: String? {
-        get { configuration.buttonTitles.confirm }
-        set { configuration.buttonTitles.confirm = newValue }
+        didSet { applyButtonTitles() }
     }
 
-    /// 取消按钮标题；nil 表示沿用 SDK 默认的“取消”，读取时返回当前生效文字。
+    /// 取消按钮标题；nil 表示沿用 SDK 默认的“取消”，赋值后立即生效并重新测量。
     public var cancelTitle: String? {
-        get { configuration.buttonTitles.cancel }
-        set { configuration.buttonTitles.cancel = newValue }
+        didSet { applyButtonTitles() }
     }
     private var confirmCallback: (() -> Void)?
     private var inputCallback: ((String) -> Void)?
     private let buttonRow = UIStackView()
     private let contentStack = makePopoverStack()
 
-    /// 上一次应用过的标题配置；用于区分“配置变化”与“宿主直接改写按钮标题”。
-    private var lastAppliedTitles: PopoverButtonTitles?
-
     /// 未配置时的默认按钮文案，保持与旧版本一致。
     private static let defaultConfirmTitle = "确认"
     private static let defaultCancelTitle = "取消"
-    private var resolvedConfirmTitle: String { resolvedTitle(configuration.buttonTitles.confirm,
-                                                             fallback: Self.defaultConfirmTitle) }
-    private var resolvedCancelTitle: String { resolvedTitle(configuration.buttonTitles.cancel,
-                                                            fallback: Self.defaultCancelTitle) }
-
-    /// nil 或空字符串都视为未配置，回退 SDK 默认文案。
-    private func resolvedTitle(_ value: String?, fallback: String) -> String {
-        guard let value, !value.isEmpty else { return fallback }
-        return value
+    private var resolvedConfirmTitle: String {
+        let value = confirmTitle
+        return (value?.isEmpty == false) ? value! : Self.defaultConfirmTitle
+    }
+    private var resolvedCancelTitle: String {
+        let value = cancelTitle
+        return (value?.isEmpty == false) ? value! : Self.defaultCancelTitle
     }
 
-    /// 同步按钮文案。只在 `configuration.buttonTitles` 真正变化时改写，
-    /// 以保留宿主直接写在 button.configuration 上的自定义文案（旧行为）。
-    /// 文字宽度变化会影响面板测量，因此改写后请求重新布局。
+    /// 把当前标题写到按钮上；nil/空字符串回退默认文案。
+    /// 只在属性赋值或视图加载时调用，因此宿主直接改 `button.configuration` 的旧写法不会被样式刷新覆盖。
     private func applyButtonTitles() {
         guard isViewLoaded else { return }
-        let titles = configuration.buttonTitles
-        guard lastAppliedTitles != titles else { return }
-        lastAppliedTitles = titles
-        confirmButton.configuration?.title = resolvedConfirmTitle
-        cancelButton.configuration?.title = resolvedCancelTitle
+        if confirmButton.configuration?.title != resolvedConfirmTitle {
+            confirmButton.configuration?.title = resolvedConfirmTitle
+        }
+        if cancelButton.configuration?.title != resolvedCancelTitle {
+            cancelButton.configuration?.title = resolvedCancelTitle
+        }
         invalidatePopoverLayout()
     }
 
@@ -186,7 +179,6 @@ open class BoneAlertView: BonePopoverView {
             contentStack.setCustomSpacing(style.resolvedContentSpacing, after: content)
         }
         buttonRow.spacing = style.resolvedButtonSpacing
-        applyButtonTitles()
         baseView.setNeedsLayout()
     }
 
@@ -291,8 +283,42 @@ open class BoneActionSheetView: BonePopoverView {
         get { configuration.contentStyle.titleAlignment }
         set { configuration.contentStyle.titleAlignment = newValue }
     }
+
+    /// 取消按钮标题；nil 回退初始化传入的 `cancelTitle`，再回退 SDK 默认“取消”。
+    /// 赋值后立即改写按钮并重新测量。
+    public var cancelTitle: String? {
+        didSet { applyCancelTitle() }
+    }
+
+    /// 关闭按钮的辅助功能标签；nil 使用“关闭”。赋值后立即生效。
+    public var closeAccessibilityLabel: String? {
+        didSet {
+            guard isViewLoaded else { return }
+            closeButton.accessibilityLabel = resolvedCloseLabel
+        }
+    }
+
+    /// 当前生效的取消文案：自身属性优先，其次初始化参数，最后“取消”。
+    private var resolvedCancelTitle: String {
+        if let text = cancelTitle, !text.isEmpty { return text }
+        return defaultCancelTitle.isEmpty ? "取消" : defaultCancelTitle
+    }
+
+    /// 关闭按钮辅助功能标签：自身属性优先，默认“关闭”。
+    private var resolvedCloseLabel: String {
+        if let text = closeAccessibilityLabel, !text.isEmpty { return text }
+        return "关闭"
+    }
+
+    /// 只在文字真的变化时改写按钮，保留宿主直接修改按钮标题的旧行为。
+    private func applyCancelTitle() {
+        guard isViewLoaded, cancelButton.configuration?.title != resolvedCancelTitle else { return }
+        cancelButton.configuration?.title = resolvedCancelTitle
+        invalidatePopoverLayout()
+    }
     private let actions: [PopoverAction]
-    private let cancelTitle: String
+    /// 初始化时给出的取消按钮默认文案；cancelTitle 未设置时使用它。
+    private let defaultCancelTitle: String
     private let contentStack = makePopoverStack()
     private let headerRow = UIView()
     private var titleLeadingAfterButton: NSLayoutConstraint?
@@ -300,7 +326,7 @@ open class BoneActionSheetView: BonePopoverView {
 
     public init(title: String, message: String? = nil, actions: [PopoverAction], cancelTitle: String = "取消") {
         self.actions = actions
-        self.cancelTitle = cancelTitle
+        self.defaultCancelTitle = cancelTitle
         super.init(nibName: nil, bundle: nil)
         titleLabel.text = title
         messageLabel.text = message
@@ -333,7 +359,7 @@ open class BoneActionSheetView: BonePopoverView {
             actionButtons.append(button)
             contentStack.addArrangedSubview(button)
         }
-        configurePopoverButton(cancelButton, title: cancelTitle, prominent: false)
+        configurePopoverButton(cancelButton, title: resolvedCancelTitle, prominent: false)
         cancelButton.addAction(UIAction { [weak self] _ in self?.hidden() }, for: .touchUpInside)
         contentStack.addArrangedSubview(cancelButton)
         setContentView(contentStack)
@@ -348,7 +374,7 @@ open class BoneActionSheetView: BonePopoverView {
         closeHeight = closeButton.heightAnchor.constraint(equalToConstant: size)
         closeWidth?.isActive = true
         closeHeight?.isActive = true
-        closeButton.accessibilityLabel = "关闭"
+        closeButton.accessibilityLabel = resolvedCloseLabel
         closeButton.accessibilityIdentifier = "popover-close"
         closeButton.addAction(UIAction { [weak self] _ in self?.hidden() }, for: .touchUpInside)
     }

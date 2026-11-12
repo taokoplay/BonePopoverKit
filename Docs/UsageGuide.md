@@ -186,6 +186,8 @@ sheet.show(from: presenter)
 
 操作列表默认在标题左侧显示向下箭头关闭按钮（阅读器默认头部样式，40 × 40 点圆形命中区，图标颜色跟随 `contentStyle.titleColor`），点击关闭弹窗；设置 `sheet.showsCloseButton = false` 可隐藏，标题随即回到内容左边距。`closeButton` 可直接访问，用于定制图标或辅助功能属性。
 
+文案可运行期替换且默认不变：`sheet.cancelTitle = "Dismiss"`，未设置时回退初始化参数，再回退“取消”；关闭按钮辅助功能标签走 `sheet.closeAccessibilityLabel`（默认“关闭”）。遮罩标签是 `popover.backdropAccessibilityLabel`，Toast 类型朗读描述是 `toast.typeDescriptions`，见第 7 节。
+
 `PopoverAction` 的字段如下，默认值来自其初始化参数：
 
 | 字段 | 名称 | 默认值 | 说明 |
@@ -487,7 +489,7 @@ alert.show(from: presenter)
 | --- | --- | --- | --- |
 | `showsBackdrop` | 显示遮罩 | `true` | 只控制视觉遮罩，不控制触摸是否传给底层。 |
 | `interfaceStyle` | 界面样式覆盖 | `.unspecified` | 默认跟随宿主与系统；设为 `.light` / `.dark` 固定弹层与遮罩外观，设回 `.unspecified` 恢复继承。 |
-| `buttonTitles` | 内置按钮文案 | 均为 `nil` | `confirm` / `cancel` 为 `nil` 时使用“确认”“取消”；显示期间修改立即生效并重新测量。 |
+| `backdropAccessibilityLabel`（在 `BonePopoverView` 上） | 遮罩辅助功能标签 | `nil` | 默认 `NSLocalizedString("Dismiss")`；赋值后立即生效。 |
 | `appearance.backdropColor` | 遮罩颜色 | `.black` | 外部背景遮罩的颜色。 |
 | `appearance.backdropOpacity` | 遮罩不透明度 | 0.32 | 遮罩的视觉浓度；顶部通知预设为 0.12。 |
 | `dismissOnBackdropTap` | 外部点击关闭 | `true` | 不穿透时，点击面板外部是否请求关闭；输入框预设为 `false`。 |

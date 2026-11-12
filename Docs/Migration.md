@@ -123,3 +123,17 @@ final class ReaderOptionsSheet: BonePopoverKit.BonePopoverView {
 Duo 需要 App 也使用支持该设备的 SDK 构建；最低系统设为 iOS 15 不妨碍使用新 SDK。容器能避开保留区域，但无法自动修正业务内容内部的硬编码宽度和超过可用空间的横向排布。
 
 迁移每个场景时验证：普通 iPhone、iPad 窄分屏、Duo 展开/折叠与旋转，输入键盘和长文本、动态字号、VoiceOver 关闭、减弱动态效果/降低透明度，以及连续展示关闭。当前包的已执行检查和未执行项见 [Validation.md](Validation.md)。
+
+## 新增可选项（不设置即旧行为）
+
+迁移时不需要为新字段做任何修改，以下入口只在显式赋值时生效：
+
+| 入口 | 用途 | 默认 |
+| --- | --- | --- |
+| `alert.confirmTitle` / `.cancelTitle`、`sheet.cancelTitle` / `.closeAccessibilityLabel`、`toast.typeDescriptions`、`popover.backdropAccessibilityLabel` | 各组件自己的文案入口 | `nil`，使用原中文文案 |
+| `configuration.interfaceStyle` | 固定弹层浅色/深色，替代旧包的 `userInterfaceStyleOverride` | `.unspecified`，跟随宿主 |
+| `contentStyle.closeButtonImage` / `.closeButtonSize` | 替换操作列表关闭按钮图标与命中区 | `nil` / 40 点 |
+| `PopoverAnimation.scale(_:)` | 调整缩放动画幅度（旧包写死 0.8） | `.scale` = 0.92 |
+| `alert.confirmTitle` / `.cancelTitle`、`sheet.cancelTitle` | 运行期修改按钮文案 | `nil`，回退 SDK/初始化默认 |
+
+完整对照见 [阅读器对照](ReaderParity.md)。

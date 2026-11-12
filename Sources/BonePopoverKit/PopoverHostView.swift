@@ -26,6 +26,11 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
     }
     private var dragSession: DragSession?
     private var dismissalDirection: PopoverSwipeDirection?
+
+    /// 遮罩的默认无障碍标签；BonePopoverView.backdropAccessibilityLabel 可覆盖。
+    private static var defaultBackdropLabel: String {
+        NSLocalizedString("Dismiss", comment: "Dismiss popover")
+    }
     private var dismissalVelocity = CGPoint.zero
     private weak var observedWindow: UIWindow?
     private var navigationGestureGuard: PopoverNavigationGestureGuard?
@@ -56,7 +61,7 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
         scrollView.contentInsetAdjustmentBehavior = .never
         scrollView.alwaysBounceVertical = false
         backdrop.addAction(UIAction { [weak self] _ in self?.backdropTapped() }, for: .touchUpInside)
-        backdrop.accessibilityLabel = NSLocalizedString("Dismiss", comment: "Dismiss popover")
+        backdrop.accessibilityLabel = Self.defaultBackdropLabel
         backdrop.accessibilityTraits = .button
         pan.delegate = self
         surface.addGestureRecognizer(pan)
@@ -96,6 +101,8 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
                       customBackground: popover.customBackgroundView)
         backdropDimmingView.backgroundColor = configuration.appearance.backdropColor
         backdrop.isUserInteractionEnabled = !configuration.allowsEventPenetration
+        let dismissLabel = popover.backdropAccessibilityLabel
+        backdrop.accessibilityLabel = (dismissLabel?.isEmpty == false ? dismissLabel! : Self.defaultBackdropLabel)
         backdrop.isAccessibilityElement = configuration.dismissOnBackdropTap && !configuration.allowsEventPenetration
         accessibilityViewIsModal = !configuration.allowsEventPenetration
         if let session = dragSession {

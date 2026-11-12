@@ -32,6 +32,11 @@ open class BonePopoverView: UIViewController {
         didSet { invalidatePopoverLayout() }
     }
     public var shouldDismiss: ((PopoverDismissReason) -> Bool)?
+
+    /// 背景遮罩的辅助功能标签；nil 使用 `NSLocalizedString("Dismiss")`。赋值后立即生效。
+    public var backdropAccessibilityLabel: String? {
+        didSet { hostView?.configurationDidChange() }
+    }
     public var onDidShow: (() -> Void)?
     public var notificationDismissComplete: (() -> Void)?
     public private(set) var presentationState: PresentationState = .hidden

@@ -32,6 +32,30 @@ open class BoneToastView: BonePopoverView {
     /// 加载中使用的原生进度圈，随展示、关闭和类型切换自动开始或停止。
     public let loadingIndicator = UIActivityIndicatorView(style: .medium)
 
+    /// Toast 各类型的朗读描述；字段默认 nil，使用内置中文文案。
+    public struct TypeDescriptions: Equatable {
+        public var success: String?
+        public var failure: String?
+        public var info: String?
+        public var loading: String?
+
+        public init(success: String? = nil, failure: String? = nil,
+                    info: String? = nil, loading: String? = nil) {
+            self.success = success
+            self.failure = failure
+            self.info = info
+            self.loading = loading
+        }
+    }
+
+    /// 类型朗读描述，用于辅助功能值与穿透模式的 announcement；修改后立即刷新。
+    public var typeDescriptions = TypeDescriptions() {
+        didSet {
+            guard isViewLoaded else { return }
+            updateIndicator()
+        }
+    }
+
     /// 提示文字；显示期间修改会自动重新测量。
     public var message: String {
         get { messageLabel.text ?? "" }
@@ -206,13 +230,20 @@ open class BoneToastView: BonePopoverView {
         super.notificationHidden(type: type)
     }
 
+    /// 类型朗读描述：typeDescriptions 优先，默认沿用既有中文 key 的本地化查找。
     private var typeDescription: String {
         switch type {
-        case .success: NSLocalizedString("成功", comment: "Toast type")
-        case .failure: NSLocalizedString("失败", comment: "Toast type")
-        case .info: NSLocalizedString("提示", comment: "Toast type")
-        case .loading: NSLocalizedString("加载中", comment: "Toast type")
+        case .success: return resolved(typeDescriptions.success, key: "成功")
+        case .failure: return resolved(typeDescriptions.failure, key: "失败")
+        case .info: return resolved(typeDescriptions.info, key: "提示")
+        case .loading: return resolved(typeDescriptions.loading, key: "加载中")
         }
+    }
+
+    /// nil 或空字符串都回退默认文案。
+    private func resolved(_ text: String?, key: String) -> String {
+        guard let text, !text.isEmpty else { return NSLocalizedString(key, comment: "Toast type") }
+        return text
     }
 
     private func updateIndicator() {

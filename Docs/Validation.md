@@ -397,3 +397,11 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - `.drag` 分区恢复拖动排序：`UITableViewDragDelegate / DropDelegate` 只允许同一 `.drag` 分区内移动，落点即插入位置，提交时仍按当前顺序回传。
 - 分隔线：有图标的行从文字起始处缩进，无图标行 15 点；末行不画。颜色、圆角、行高、图标参数继续走 `sheetConfig`。
 - 测试改为通过 table view 驱动：`tapRow` 调用 `didSelectRowAt`，行背景/图标断言改成拿 `BoneDrawerSheetCell` 的视图；新增 `tableView.style == .grouped` 断言。核心 **98/98 通过**（`td-all.log`），Demo UI 抽屉用例 **1/1 通过**（`td-ui2.log`）。
+
+## 抽屉 cell 文字错位修复（Auto Layout 与手写 frame 冲突）
+
+- 现象：换成 `UITableView` 后行文字停在左上角、不在白色行背景里，行首图标与分隔线也塌成 0 尺寸。
+- 原因：cell 的子视图既被设为 `translatesAutoresizingMaskIntoConstraints = false`，又只在 `layoutSubviews` 里手写 `frame`；`contentView` 的 Auto Layout 通道随后把这些没有约束的视图重置成零/固有尺寸。实测 `UILabel` 变成 `(0, 0, 32, 19.3)`、`iconBox` 变成 `(0, 0, 0, 0)`。
+- 修复：cell 内部完全改为 frame 排版（与阅读器 `pin` 一节一致），不再让子视图参与 Auto Layout；分隔线高度也改成 frame 计算。修复后实测：行背景 `(16, 0, 358, 55)`、行首图标 `(32, 11.5, 32, 32)`、文字 `(76, 17.5, 250, 20)`、勾选 `(338, 17.5, 20, 20)`、分隔线 `(31, 54.5, 328, 0.5)`，全部落在行内。
+- 有图标的行分隔线从文字起始处（`textLeft`）开始，无图标行仍为 15 点内缩。
+- 验证：核心 **98/98 通过**（`td-all2.log`）；真机包已重装并启动 `dev.bone.BonePopoverDemo`。

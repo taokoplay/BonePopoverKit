@@ -31,11 +31,7 @@ final class BoneDrawerSheetCell: UITableViewCell {
         return view
     }()
 
-    private let lineView: UIView = {
-        let view = UIView()
-        view.heightAnchor.constraint(equalToConstant: 0.5).isActive = true
-        return view
-    }()
+    private let lineView = UIView()
 
     /// 文字标签；内部实际使用 `titleLabel`。
     private let textLabelView = UILabel()
@@ -71,9 +67,7 @@ final class BoneDrawerSheetCell: UITableViewCell {
         accessoryImageView.tag = 99
         accessoryImageView.isHidden = true
 
-        for view in [baseView, lineView, iconBox, textLabelView, accessoryImageView, iconView] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-        }
+        // 全部用 frame 排版（与阅读器 `pin` 一致）：不参与 Auto Layout，避免被重置成零。
     }
 
     required init?(coder: NSCoder) { fatalError("Use init(style:reuseIdentifier:)") }
@@ -168,9 +162,11 @@ final class BoneDrawerSheetCell: UITableViewCell {
         textLabelView.frame = CGRect(x: textLeft, y: baseView.frame.midY - textHeight / 2,
                                      width: textWidth, height: textHeight)
 
-        lineView.frame = CGRect(x: baseView.frame.minX + 15,
+        // 有图标的行，分隔线从文字起始处缩进（系统设置的分组列表就是这样）。
+        let lineLeft = iconBox.isHidden ? baseView.frame.minX + 15 : textLeft
+        lineView.frame = CGRect(x: lineLeft,
                                 y: baseView.frame.maxY - 0.5,
-                                width: max(0, baseView.frame.width - 30), height: 0.5)
+                                width: max(0, baseView.frame.maxX - 15 - lineLeft), height: 0.5)
     }
 
     /// 由抽屉在每次配置时写入的布局常量（cell 复用，不能存每行独立状态之外的几何）。

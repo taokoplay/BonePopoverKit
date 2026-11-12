@@ -39,12 +39,24 @@ final class PopoverDrawerSheetTests: XCTestCase {
         return sheet
     }
 
+    /// 右侧按钮默认隐藏；显式打开后才出现，且点击才提交。
+    @MainActor
+    func testTrailingButtonHiddenByDefault() throws {
+        let sheet = drawer()
+        let (window, _, _) = try present(sheet)
+        defer { sheet.dismissPopover(animated: false); window.isHidden = true }
+        let trailing = try XCTUnwrap(control("drawer-confirm", in: sheet.baseView))
+        XCTAssertTrue(trailing.isHidden, "默认不显示右侧按钮")
+        XCTAssertTrue(sheet.hasConfirmOperation, "分区仍是选择型，只是不自动显示按钮")
+    }
+
     /// 确认提交：单选默认选中项 + 手动勾选的多选项，按分区顺序回传。
     @MainActor
     func testConfirmSubmitsSingleAndMultipleSelections() async throws {
         let sheet = drawer()
         var submitted: [String] = []
         sheet.selectAction { submitted = $0.map(\.text) }
+        sheet.showsConfirmButton = true
         let (window, _, _) = try present(sheet)
         defer { sheet.dismissPopover(animated: false); window.isHidden = true }
 
@@ -65,6 +77,7 @@ final class PopoverDrawerSheetTests: XCTestCase {
         let sheet = drawer()
         var submitted: [String] = []
         sheet.selectAction { submitted = $0.map(\.text) }
+        sheet.showsConfirmButton = true
         let (window, _, _) = try present(sheet)
         defer { sheet.dismissPopover(animated: false); window.isHidden = true }
 
@@ -148,6 +161,7 @@ final class PopoverDrawerSheetTests: XCTestCase {
         let sheet = drawer()
         var submitted: [String] = []
         sheet.selectAction { submitted = $0.map(\.text) }
+        sheet.showsConfirmButton = true
         let (window, _, _) = try present(sheet)
         defer { sheet.dismissPopover(animated: false); window.isHidden = true }
 

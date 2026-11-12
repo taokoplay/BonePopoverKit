@@ -336,3 +336,11 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - 按用户要求改回阅读器的左右关系：左侧关闭按钮（×，40 × 40，标识 `drawer-close`），右侧为可自定义按钮（标识 `drawer-confirm`，默认“确定”，仅在有选择型分区时显示并提交选中项）；标题居中。
 - 新增 `trailingButton` 供宿主改文案/图标，`onTrailingButtonTap` 接管点击：设置后按钮始终显示，点击只执行自定义回调、不再默认提交关闭。
 - 测试：`testHeaderPlacesCloseAtTopLeftAndTrailingButtonAtTopRight`、`testCustomTrailingButtonReplacesDefaultConfirm` 等抽屉用例 **8/8 通过**（`drawer-header3.log`）；核心回归见 `core-drawer6.log`；Demo UI 抽屉用例保持通过。
+
+## 抽屉右侧按钮默认隐藏（两种取结果方式）
+
+- 右侧按钮不再随选择型分区自动出现：默认 `showsConfirmButton = false`（隐藏），需要统一提交时显式打开；`onTrailingButtonTap` 设置后同样会显示并接管点击。
+- 两种取结果方式与阅读器一致：
+  1. 多选/需要统一提交：`showsConfirmButton = true` → 点右侧按钮执行 `confirm()`，按分区顺序把选中项通过 `selectAction` 回传并关闭；
+  2. 单选/立即执行：`.normal("")` 行 + 每行 `callback`，点行即回调并关闭，不显示右侧按钮（旧实现里的用法）。
+- 测试：新增 `testTrailingButtonHiddenByDefault`，并把提交类用例改为显式打开按钮；抽屉用例 **9/9 通过**（`drawer-hidden.log`）；Demo 场景 18 打开 `showsConfirmButton` 演示“确定”提交，UI 用例 **1/1 通过**（`ui-drawer9.log`）。

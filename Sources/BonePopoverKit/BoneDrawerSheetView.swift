@@ -9,7 +9,10 @@ import UIKit
 /// - `.multipleSelect`：分区内多选，“确定”提交全部选中项；
 /// - `.drag`：行按添加顺序参与提交（当前版本不支持拖动排序）。
 ///
-/// 提交结果通过 `selectAction { ... }` 回传 `[(text: String, value: String)]`。
+/// 两种取结果的方式：
+/// - 选择型分区（`.singleSelect` / `.multipleSelect` / `.drag`）：打开 `showsConfirmButton`，
+///   点右侧按钮统一提交，结果通过 `selectAction { ... }` 回传 `[(text: String, value: String)]`；
+/// - 普通分区（`.normal`）：点行直接执行该行的 `callback` 并关闭，右侧按钮保持隐藏。
 @MainActor
 open class BoneDrawerSheetView: BonePopoverView {
     /// 分区类型；标题同时用作分区标题文字。
@@ -94,7 +97,12 @@ open class BoneDrawerSheetView: BonePopoverView {
     public let titleLabel = UILabel()
     /// 标题行右侧按钮；默认显示“确定”并提交选中项，宿主可改文案、图标或自行接管点击。
     public var trailingButton: UIButton { confirmButton }
-    /// 自定义右侧按钮点击行为：设置后不再执行默认的“提交并关闭”，由宿主自行处理。
+    /// 是否显示右侧按钮，默认 `false`（不设置就不出现）。
+    /// 多选/单选这类选择型分区需要统一提交时再打开，点击会走 `selectAction` 并关闭。
+    public var showsConfirmButton = false {
+        didSet { applyTrailingButtonVisibility() }
+    }
+    /// 自定义右侧按钮点击行为：设置后按钮显示，且不再执行默认的“提交并关闭”，由宿主自行处理。
     public var onTrailingButtonTap: (() -> Void)? {
         didSet { applyTrailingButtonVisibility() }
     }
@@ -278,10 +286,10 @@ open class BoneDrawerSheetView: BonePopoverView {
         return header
     }
 
-    /// 右侧按钮：默认只在有选择型分区时出现；宿主自定义回调时始终显示。
+    /// 右侧按钮默认隐藏；只有显式打开 `showsConfirmButton` 或接管点击时才出现。
     private func applyTrailingButtonVisibility() {
         guard isViewLoaded else { return }
-        confirmButton.isHidden = !(hasConfirmOperation || onTrailingButtonTap != nil)
+        confirmButton.isHidden = !(showsConfirmButton || onTrailingButtonTap != nil)
     }
 
     private func makeSectionHeader(_ section: Section, isFirst: Bool) -> UIView {

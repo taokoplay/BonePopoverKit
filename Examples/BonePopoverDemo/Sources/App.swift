@@ -391,6 +391,7 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
                 self?.record("抽屉：恢复默认")
             }
             drawer.sheetConfig.openSectionTitle = true
+            drawer.showsConfirmButton = true   // 多选统一靠右侧“确定”提交
             drawer.selectAction { [weak self] selections in
                 let titles = selections.map(\.text).joined(separator: "、")
                 self?.record(titles.isEmpty ? "抽屉提交：无选中" : "抽屉提交：\(titles)")

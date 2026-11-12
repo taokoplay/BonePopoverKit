@@ -222,26 +222,29 @@ sheet.show(from: presenter)
 
 ### 3.4 抽屉式列表
 
-阅读器那种「标题 + 抓手 + 分组列表」的底部抽屉，直接用 `BoneDrawerSheetView`：
+阅读器那种「标题 + 抓手 + 分组列表」的底部抽屉，用法沿用旧实现：先建面板，再按分区逐个加行，提交结果通过 `selectAction` 回传。
 
 ```swift
-let drawer = BoneDrawerSheetView(title: "阅读设置", sections: [
-    .init(title: "翻页", items: [
-        .init("平移", detail: "左右平移翻页", image: UIImage(systemName: "arrow.left.and.right")),
-        .init("仿真", detail: "纸张卷曲效果", image: UIImage(systemName: "book")),
-        .init("上下", detail: "纵向滚动翻页", image: UIImage(systemName: "arrow.up.and.down"))
-    ]),
-    .init(title: "主题", items: [.init("浅色"), .init("深色"), .init("护眼")])
-])
-drawer.setSelected(indices: [0])          // 扁平索引，跨分组连续编号
-drawer.onSelect = { item in print(item.title) }
+let drawer = BoneDrawerSheetView(title: "阅读设置")
+drawer.addButton(text: "平移", value: "0", inSection: .singleSelect("翻页", true))
+drawer.addButton(text: "仿真", value: "1", inSection: .singleSelect("翻页", false))
+drawer.addButton(text: "浅色", value: "light", inSection: .multipleSelect("主题", false))
+drawer.addButton(text: "深色", value: "dark", inSection: .multipleSelect("主题", false))
+drawer.addButton(text: "恢复默认", style: .highlight, inSection: .normal("")) {
+    print("恢复默认")
+}
+drawer.sheetConfig.openSectionTitle = true
+drawer.selectAction { selections in
+    // [(text: String, value: String)]
+    print(selections)
+}
 drawer.show(from: presenter)
 ```
 
-- 默认 `.single`：点击即选中并关闭；`.multiple` 保留弹窗、显示勾选与“完成”按钮，由 `onConfirm` 回传全部选中项；`.none` 只回调不记录选中。
-- `dismissesOnSelect = false` 可让单选也保留弹窗；`showsCancel: false` 可去掉取消按钮。
-- 表面沿用 `.bottomSheet`（仅圆顶部两角、无阴影、0.15 秒滑入），默认显示抓手，标题居中；行内字体跟随 `contentStyle.buttonFont` / `messageFont`。
-- 行使用 `isDestructive` 时文字为红色，只是视觉语义，不自动二次确认。
+- 分区类型：`.normal` 点击执行回调并关闭；`.singleSelect` 分区内单选；`.multipleSelect` 分区内多选；`.drag` 按添加顺序全部提交（当前版本不支持拖动排序）。
+- 标题相同即同一分区，第二个参数只决定新行是否默认选中；有选择型分区时才出现“确定”按钮，`selectAction` 在点“确定”后回调。
+- `sheetConfig` 可调 `openSectionTitle`、`sectionHeight`、`fontSize`、`cellHeight`、`highlightColor`、`textAlignment`；`confirmTitle` / `cancelTitle` 可改按钮文案。
+- 表面沿用 `.bottomSheet`（仅圆顶部两角、无阴影、0.15 秒滑入），默认显示抓手、标题居中。
 
 ### 3.5 Toast 提示
 

@@ -80,14 +80,16 @@ sheet.addButton("删除", role: .destructive) { delete() }
 sheet.show(from: self)
 ```
 
-需要「标题 + 抓手 + 分组列表」的抽屉时用 `BoneDrawerSheetView`（默认单选，可切多选）：
+需要「标题 + 抓手 + 分组列表」的抽屉时用 `BoneDrawerSheetView`，用法与阅读器旧实现一致：先建面板，再按分区逐个 `addButton`，通过 `selectAction` 接收提交结果：
 
 ```swift
-let drawer = BoneDrawerSheetView(title: "阅读设置", sections: [
-    .init(title: "翻页", items: [.init("平移"), .init("仿真"), .init("上下")]),
-    .init(title: "主题", items: [.init("浅色"), .init("深色")])
-])
-drawer.onSelect = { item in print(item.title) }
+let drawer = BoneDrawerSheetView(title: "阅读设置")
+drawer.addButton(text: "平移", value: "0", inSection: .singleSelect("翻页", true))
+drawer.addButton(text: "仿真", value: "1", inSection: .singleSelect("翻页", false))
+drawer.addButton(text: "浅色", value: "light", inSection: .multipleSelect("主题", false))
+drawer.addButton(text: "恢复默认", style: .highlight, inSection: .normal("")) { reset() }
+drawer.sheetConfig.openSectionTitle = true
+drawer.selectAction { selections in print(selections) }   // [(text: String, value: String)]
 drawer.show(from: self)
 ```
 

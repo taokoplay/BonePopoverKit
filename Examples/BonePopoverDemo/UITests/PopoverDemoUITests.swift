@@ -152,12 +152,13 @@ final class PopoverDemoUITests: XCTestCase {
         XCTAssertTrue(row.isHittable)
         row.tap()
         XCTAssertTrue(app.otherElements["popover-ready"].waitForExistence(timeout: 5))
-        let option = app.buttons["drawer-row-1"]
+        let option = app.buttons["drawer-row-0-1"]
         XCTAssertTrue(option.waitForExistence(timeout: 5))
         capture("drawer-sheet")
         option.tap()
+        app.buttons["drawer-confirm"].tap()
         XCTAssertTrue(app.staticTexts["demo-result"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["demo-result"].label, "抽屉：仿真")
+        XCTAssertEqual(app.staticTexts["demo-result"].label, "抽屉提交：仿真")
         XCTAssertTrue(app.cells["scene-18"].waitForExistence(timeout: 5))
     }
 

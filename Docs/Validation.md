@@ -313,3 +313,6 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - 首页控制条由 2 行扩到 4 行：外观、动画、遮罩（预设/显示/隐藏）、交互（预设/允许穿透/拦截触摸）；展示前按选择写入 `configuration`，选「预设」时保持各预设默认。新增场景 18「抽屉式选择」，Demo 共 19 个场景。
 - 测试：核心 **86/86 通过**（`core-drawer.log`，新增抽屉单选/多选与遮罩 3 项）；Demo UI `testDrawerSceneSelectsRowAndReportsResult` **1/1 通过**（`ui-drawer.log`）。
 - 真机：iPhone 13 Pro（iOS 26.5），Team `2PX9496FD6` 构建成功 → `devicectl install` → `process launch` 成功。
+- 追加修正：`BoneDrawerSheetView` 的用法改为与阅读器旧实现一致——`init(title:)` + `addButton(text:value:style:inSection:callback:)` + `selectAction { [(text, value)] }`，分区类型 `.normal/.singleSelect/.multipleSelect/.drag`，`sheetConfig`（`openSectionTitle`/`sectionHeight`/`fontSize`/`cellHeight`/`highlightColor`/`textAlignment`）与 `confirmTitle`/`cancelTitle` 保留。此前的 `init(sections:)` + `onSelect/onConfirm` 组合已移除。
+- 过程中发现并修复：`addButton` 最初用整个 `SectionType` 比较分区，`singleSelect("翻页", true)` 与 `("翻页", false)` 会被当成两个分区；按旧实现改为**按标题匹配**，初值 Bool 只决定新行默认选中。修复前测试报 `["平移"] != ["平移", "深色"]`（`drawer-tests3.log`），修复后 4 项抽屉测试通过（`drawer-tests4.log`）。
+- 重新验证：核心 **87/87 通过**（`core-drawer2.log`）；Demo UI `testDrawerSceneSelectsRowAndReportsResult`（先点“仿真”再点“确定”，结果条显示“抽屉提交：仿真”）**1/1 通过**（`ui-drawer2.log`）。真机：iPhone 13 Pro 构建 → 安装 → 启动成功。

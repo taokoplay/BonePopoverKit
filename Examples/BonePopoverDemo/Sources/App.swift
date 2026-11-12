@@ -380,20 +380,21 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
             }
             popover = sheet
         case 18:
-            let drawer = BoneDrawerSheetView(title: "阅读设置", sections: [
-                .init(title: "翻页", items: [
-                    .init("平移", detail: "左右平移翻页", image: UIImage(systemName: "arrow.left.and.right")),
-                    .init("仿真", detail: "纸张卷曲效果", image: UIImage(systemName: "book")),
-                    .init("上下", detail: "纵向滚动翻页", image: UIImage(systemName: "arrow.up.and.down"))
-                ]),
-                .init(title: "主题", items: [
-                    .init("浅色", image: UIImage(systemName: "sun.max")),
-                    .init("深色", image: UIImage(systemName: "moon")),
-                    .init("护眼", image: UIImage(systemName: "leaf"))
-                ])
-            ])
-            drawer.setSelected(indices: [0])
-            drawer.onSelect = { [weak self] item in self?.record("抽屉：\(item.title)") }
+            let drawer = BoneDrawerSheetView(title: "阅读设置")
+            drawer.addButton(text: "平移", value: "0", inSection: .singleSelect("翻页", true))
+            drawer.addButton(text: "仿真", value: "1", inSection: .singleSelect("翻页", false))
+            drawer.addButton(text: "上下", value: "2", inSection: .singleSelect("翻页", false))
+            drawer.addButton(text: "浅色", value: "light", inSection: .multipleSelect("主题", false))
+            drawer.addButton(text: "深色", value: "dark", inSection: .multipleSelect("主题", false))
+            drawer.addButton(text: "护眼", value: "eye", inSection: .multipleSelect("主题", false))
+            drawer.addButton(text: "恢复默认", style: .highlight, inSection: .normal("")) { [weak self] in
+                self?.record("抽屉：恢复默认")
+            }
+            drawer.sheetConfig.openSectionTitle = true
+            drawer.selectAction { [weak self] selections in
+                let titles = selections.map(\.text).joined(separator: "、")
+                self?.record(titles.isEmpty ? "抽屉提交：无选中" : "抽屉提交：\(titles)")
+            }
             popover = drawer
         case 12:
             let alert = BoneAlertView(title: "自定义字体与间距", message: "标题 22 点粗体，正文 15 点；内边距、段落和按钮间距统一设置。") {}

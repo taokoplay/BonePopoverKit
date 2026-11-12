@@ -219,7 +219,11 @@ final class PopoverDrawerSheetTests: XCTestCase {
 
         let first = try background(of: "drawer-row-0-0")
         let last = try background(of: "drawer-row-0-1")
-        XCTAssertEqual(first.backgroundColor, .secondarySystemBackground, "默认行背景为次级背景色")
+        // 分组列表配色：面板灰底、行白底（深色下分别是黑与 #1C1C1E）。
+        XCTAssertEqual(sheet.configuration.appearance.backgroundColor, .systemGroupedBackground,
+                       "默认面板为分组灰底")
+        XCTAssertEqual(first.backgroundColor, .secondarySystemGroupedBackground, "默认行背景为白底")
+        XCTAssertNotEqual(sheet.configuration.appearance.backgroundColor, first.backgroundColor)
         XCTAssertEqual(first.layer.maskedCorners, [.layerMinXMinYCorner, .layerMaxXMinYCorner])
         XCTAssertEqual(last.layer.maskedCorners, [.layerMinXMaxYCorner, .layerMaxXMaxYCorner])
 

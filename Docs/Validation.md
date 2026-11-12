@@ -370,3 +370,11 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - 新增 `PopoverBackdropGlassTests`（4 项）：默认不画玻璃层、开启后挂上模糊且不改变 0.32 压暗、`backdropOpacity = 0` 仍是纯模糊、`showsBackdrop = false` 连玻璃一起关、材质与颜色可配置并可关闭。
 - Demo：首页「遮罩」控制新增第 4 项「玻璃遮罩」；新增场景 20「玻璃遮罩」，可在弹窗内切换玻璃开关与 0 / 0.12 / 0.32 三档不透明度。
 - 测试：核心 **97/97 通过**（`popover-glass1.log`，含 4 项新用例）。
+
+## 抽屉配色改为「灰底白行」（系统分组列表观感）
+
+- 面板底色：`BoneDrawerSheetView.init` 在 `.bottomSheet` 预设之后覆盖 `configuration.appearance.backgroundColor = .systemGroupedBackground`（浅色浅灰 / 深色纯黑）。
+- 行（cell）底色：`SheetConfig.cellBackgroundColor` 默认值由 `.secondarySystemBackground` 改为 `.secondarySystemGroupedBackground`（浅色纯白 / 深色 #1C1C1E），与灰底形成分组列表的层次，深色下也不会出现「黑字块糊在一起」。
+- 两者仍各自独立：`configuration.appearance.backgroundColor` 改面板，`sheetConfig.cellBackgroundColor` 改行，任一改动即时重排。
+- 用例 `testRowBackgroundColorAndGroupedCorners` 更新为断言面板 `.systemGroupedBackground`、行 `.secondarySystemGroupedBackground`，并断言两者默认不同色，避免将来又被改成同一层。
+- 测试：核心 **97/97 通过**（`popover-drawerpalette.log`）。

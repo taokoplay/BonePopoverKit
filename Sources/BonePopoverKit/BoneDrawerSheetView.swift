@@ -51,8 +51,9 @@ open class BoneDrawerSheetView: BonePopoverView {
         public var highlightColor: UIColor = .tintColor
         /// 行文字对齐，默认左对齐。
         public var textAlignment: NSTextAlignment = .left
-        /// 行背景色，默认次级背景；面板底色由 `configuration.appearance.backgroundColor` 控制。
-        public var cellBackgroundColor: UIColor = .secondarySystemBackground
+        /// 行（cell）背景色，默认 `secondarySystemGroupedBackground`（浅色为白、深色为 #1C1C1E）；
+        /// 面板底色默认 `systemGroupedBackground`（浅灰），由 `configuration.appearance.backgroundColor` 控制。
+        public var cellBackgroundColor: UIColor = .secondarySystemGroupedBackground
         /// 分组首尾行的圆角，默认 10 点。
         public var cellCornerRadius: CGFloat = 10
         /// 行背景与面板左右边缘的间距，默认 16 点。
@@ -138,6 +139,8 @@ open class BoneDrawerSheetView: BonePopoverView {
         super.init(nibName: nil, bundle: nil)
         titleLabel.text = title
         configuration = .bottomSheet
+        // 面板用分组灰底、行用白底：与系统「设置」式分组列表一致。
+        configuration.appearance.backgroundColor = .systemGroupedBackground
         configuration.appearance.showsGrabber = true
         configuration.contentStyle.titleFont = .systemFont(ofSize: 14)
         configuration.contentStyle.titleAlignment = .center

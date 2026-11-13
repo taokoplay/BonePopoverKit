@@ -419,3 +419,10 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - 列表总高度改成按分区求和（不再用「分区数 × 统一高度」），空标题分区不会多留白。
 - 新增用例 `testEmptySectionTitleShrinksHeaderHeight`：第一区 0.01、有标题 35、无标题 10，且无标题分区没有标题视图。
 - 验证：核心 **99/99 通过**（`shrink-tests.log`）。
+
+## 抽屉“确定”按钮字号 14、宽度放宽
+
+- `applyPopoverCircleButtonStyle` 的文字字体 13 → **14 点 semibold**；文字态的左右内边距 8 → **14 点**（玻璃路径走 `contentInsets`，早期系统回退路径额外设 `contentEdgeInsets`），所以两字标题的胶囊变宽。
+- 抽屉表头给确定按钮的最小宽度从「等于圆圈尺寸」改为「圆圈尺寸 + 8」，保证比左侧关闭按钮宽。
+- 实测：关闭按钮 `40×40`，确定按钮 **`56×40`**（390 宽面板）。用例 `testConfirmButtonSharesCloseButtonStyle` 的断言改为「宽度比高度多 8～24 点」，不再要求接近圆形。
+- 验证：核心 **99/99 通过**（`font14b.log`）。

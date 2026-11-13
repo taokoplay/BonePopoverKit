@@ -523,13 +523,13 @@ func applyPopoverCircleButtonStyle(_ button: UIButton, style: PopoverContentStyl
     let symbol = image ?? style.closeButtonImage ?? UIImage(
         systemName: "chevron.down",
         withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .medium))
-    let font = UIFont.systemFont(ofSize: 13, weight: .semibold)
+    let font = UIFont.systemFont(ofSize: 14, weight: .semibold)
     #if compiler(>=6.2)
     if #available(iOS 26.0, *) {
         var configuration = UIButton.Configuration.glass()
         configuration.cornerStyle = .capsule
-        // 文字按钮左右留白收窄，让“确定”这类两字标题接近左侧圆圈按钮的直径。
-        let horizontalInset: CGFloat = title == nil ? 6 : 8
+        // 图标按钮保持圆圈；文字按钮左右留白放宽，让“确定”这类两字标题更宽一些。
+        let horizontalInset: CGFloat = title == nil ? 6 : 14
         configuration.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: horizontalInset,
                                                              bottom: 6, trailing: horizontalInset)
         configuration.title = title
@@ -553,6 +553,8 @@ func applyPopoverCircleButtonStyle(_ button: UIButton, style: PopoverContentStyl
         button.titleLabel?.font = font
         button.titleLabel?.adjustsFontSizeToFitWidth = true
         button.titleLabel?.minimumScaleFactor = 0.8
+        // 非配置式按钮用内容内边距控制宽度，与玻璃路径的 14 点左右留白对齐。
+        button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 14, bottom: 6, right: 14)
     } else {
         button.setTitle(nil, for: .normal)
         button.setImage(symbol, for: .normal)

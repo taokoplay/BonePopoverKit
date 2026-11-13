@@ -353,8 +353,9 @@ open class BoneDrawerSheetView: BonePopoverView {
             cancelButton.widthAnchor.constraint(equalToConstant: size),
             cancelButton.heightAnchor.constraint(equalToConstant: size)
         ]
+        // 文字按钮比左侧圆圈宽一些，至少留出 8 点余量。
         confirmSizeConstraints = [
-            confirmButton.widthAnchor.constraint(greaterThanOrEqualToConstant: size),
+            confirmButton.widthAnchor.constraint(greaterThanOrEqualToConstant: size + 8),
             confirmButton.heightAnchor.constraint(equalToConstant: size)
         ]
         let top = titleLabel.topAnchor.constraint(equalTo: header.topAnchor,

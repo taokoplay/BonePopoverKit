@@ -215,7 +215,9 @@ final class PopoverDrawerSheetTests: XCTestCase {
 
         XCTAssertEqual(confirm.frame.height, close.frame.height, accuracy: 0.5, "两个按钮高度必须一致")
         XCTAssertGreaterThanOrEqual(confirm.frame.width, close.frame.width - 0.5, "文字按钮不应比关闭按钮更窄")
-        XCTAssertLessThanOrEqual(confirm.frame.width - confirm.frame.height, 14, "两字标题应接近圆形，与左侧按钮直径相当")
+        // 文字按钮比左侧圆圈宽：高度一致，宽度至少多 8 点、且不会撑成离谱的长条。
+        XCTAssertGreaterThanOrEqual(confirm.frame.width - confirm.frame.height, 8)
+        XCTAssertLessThanOrEqual(confirm.frame.width - confirm.frame.height, 24)
         if #available(iOS 26.0, *) {
             XCTAssertEqual(confirm.configuration?.cornerStyle, close.configuration?.cornerStyle,
                            "确认按钮应与关闭按钮同为胶囊玻璃样式")

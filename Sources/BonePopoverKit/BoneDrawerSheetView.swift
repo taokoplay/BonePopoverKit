@@ -74,6 +74,10 @@ open class BoneDrawerSheetView: BonePopoverView {
         public var headerInset: CGFloat = 16
         /// 列表最高高度，默认 500 点；超出后列表内部滚动。
         public var maximumListHeight: CGFloat = 500
+        /// 标题上下留白，默认 10 点；调小则标题更贴近抓手/顶边。
+        public var headerTopSpacing: CGFloat = 10
+        /// 标题与列表之间的间距，默认 10 点。
+        public var listTopSpacing: CGFloat = 10
 
         public init() {}
     }
@@ -148,6 +152,10 @@ open class BoneDrawerSheetView: BonePopoverView {
 
     /// 列表本体；沿用阅读器做法，透明背景 + 分组样式 + 无系统分隔线。
     let tableView = UITableView(frame: .zero, style: .grouped)
+    /// 标题行与其上下留白约束，`sheetConfig.headerTopSpacing` 变化后同步。
+    private weak var headerRowView: UIView?
+    private var headerTopConstraint: NSLayoutConstraint?
+    private var headerBottomConstraint: NSLayoutConstraint?
     private var tableHeightConstraint: NSLayoutConstraint?
     private var cancelSizeConstraints: [NSLayoutConstraint] = []
     private var confirmSizeConstraints: [NSLayoutConstraint] = []
@@ -162,7 +170,7 @@ open class BoneDrawerSheetView: BonePopoverView {
         configuration.appearance.showsGrabber = true
         configuration.contentStyle.titleFont = .systemFont(ofSize: 17, weight: .semibold)
         configuration.contentStyle.titleAlignment = .center
-        configuration.contentStyle.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 0,
+        configuration.contentStyle.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 0,
                                                                           bottom: 20, trailing: 0)
         // 列表自己负责滚动，外层保持一屏内不滚动，避免嵌套滚动抢手势。
         configuration.scrollsOverflow = false
@@ -285,10 +293,20 @@ open class BoneDrawerSheetView: BonePopoverView {
         tableView.rowHeight = sheetConfig.cellHeight
         tableView.dragInteractionEnabled = hasDragOperation
         tableView.reloadData()
+        applyHeaderSpacing()
         updateTableHeight()
         applyTrailingButtonVisibility()
         refreshSelection()
         invalidatePopoverLayout()
+    }
+
+    /// 标题上下留白与「标题到列表」的间距跟随 `sheetConfig`。
+    private func applyHeaderSpacing() {
+        headerTopConstraint?.constant = sheetConfig.headerTopSpacing
+        headerBottomConstraint?.constant = -sheetConfig.headerTopSpacing
+        if let header = headerRowView {
+            contentStack.setCustomSpacing(sheetConfig.listTopSpacing, after: header)
+        }
     }
 
     /// 列表高度按分区自己算，不依赖 `contentSize`；超过 `maximumListHeight` 时内部滚动。
@@ -337,9 +355,14 @@ open class BoneDrawerSheetView: BonePopoverView {
             confirmButton.widthAnchor.constraint(greaterThanOrEqualToConstant: size),
             confirmButton.heightAnchor.constraint(equalToConstant: size)
         ]
-        NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: header.topAnchor, constant: 14),
-            titleLabel.bottomAnchor.constraint(equalTo: header.bottomAnchor, constant: -14),
+        let top = titleLabel.topAnchor.constraint(equalTo: header.topAnchor,
+                                                  constant: sheetConfig.headerTopSpacing)
+        let bottom = titleLabel.bottomAnchor.constraint(equalTo: header.bottomAnchor,
+                                                        constant: -sheetConfig.headerTopSpacing)
+        headerTopConstraint = top
+        headerBottomConstraint = bottom
+        headerRowView = header
+        NSLayoutConstraint.activate([top, bottom,
             titleLabel.leadingAnchor.constraint(equalTo: header.leadingAnchor,
                                                 constant: sheetConfig.headerInset + size + 8),
             titleLabel.trailingAnchor.constraint(equalTo: header.trailingAnchor,

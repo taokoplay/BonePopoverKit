@@ -412,3 +412,10 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
 - 面板内容顶部内边距由 4 点收到 0，标题整体上移约 4 点；配合标题留白 14→10，标题比之前更贴近抓手。
 - 标题与列表之间不再紧贴，默认留 10 点。
 - 验证：核心 **98/98 通过**（`spacing-tests.log`）。
+
+## 抽屉空标题分区自动收缩
+
+- `headerHeight(forSection:)` 统一计算标题行高度：第一区 0.01；未开 `openSectionTitle` 用 `sectionHeight`；开了标题但该分区标题为空时**退回 `sectionHeight`**（10 点），不再固定占 35 点。`viewForHeaderInSection` 对空标题分区返回 `nil`。
+- 列表总高度改成按分区求和（不再用「分区数 × 统一高度」），空标题分区不会多留白。
+- 新增用例 `testEmptySectionTitleShrinksHeaderHeight`：第一区 0.01、有标题 35、无标题 10，且无标题分区没有标题视图。
+- 验证：核心 **99/99 通过**（`shrink-tests.log`）。

@@ -259,6 +259,29 @@ final class PopoverDrawerSheetTests: XCTestCase {
         XCTAssertEqual(updated.layer.cornerRadius, 4, accuracy: 0.1)
     }
 
+    /// 分区标题为空时不占标题高度，只用普通间距；有标题才留 35 点。
+    @MainActor
+    func testEmptySectionTitleShrinksHeaderHeight() throws {
+        let sheet = BoneDrawerSheetView(title: "阅读设置")
+        sheet.addButton(text: "平移", value: "0", inSection: .singleSelect("翻页", true))
+        sheet.addButton(text: "浅色", value: "light", inSection: .multipleSelect("主题", false))
+        // 第三个分区故意不给标题
+        sheet.addButton(text: "恢复默认", style: .highlight, inSection: .normal(""))
+        sheet.sheetConfig.openSectionTitle = true
+        sheet.sheetConfig.sectionHeight = 10
+        let (window, _, _) = try present(sheet)
+        defer { sheet.dismissPopover(animated: false); window.isHidden = true }
+
+        XCTAssertEqual(sheet.tableView(sheet.tableView, heightForHeaderInSection: 0), 0.01, accuracy: 0.01,
+                       "第一区不占标题位")
+        XCTAssertEqual(sheet.tableView(sheet.tableView, heightForHeaderInSection: 1), 35, accuracy: 0.5,
+                       "有标题的分区保留 35 点")
+        XCTAssertEqual(sheet.tableView(sheet.tableView, heightForHeaderInSection: 2), 10, accuracy: 0.5,
+                       "没标题的分区收缩成普通间距")
+        XCTAssertNil(sheet.tableView(sheet.tableView, viewForHeaderInSection: 2),
+                     "没标题的分区不画标题视图")
+    }
+
     /// 遮罩默认按预设：确认框 0.32；showsBackdrop 可关闭/重开；底部预设默认无遮罩。
     @MainActor
     func testBackdropDimmingFollowsPresetAndShowsBackdrop() throws {

@@ -313,17 +313,19 @@ open class BoneDrawerSheetView: BonePopoverView {
     private func updateTableHeight() {
         let rowHeight = sheetConfig.cellHeight
         let rows = sections.reduce(CGFloat.zero) { $0 + CGFloat($1.buttons.count) }
-        let headerUnit = sectionHeaderHeight()
-        let headerTotal = sections.isEmpty ? 0 : CGFloat(max(0, sections.count - 1)) * headerUnit
+        // 每个分区的标题高度单独算：没标题的分区不占标题位，只用普通间距。
+        let headerTotal = sections.indices.reduce(CGFloat.zero) { $0 + headerHeight(forSection: $1) }
         let content = rows * rowHeight + headerTotal
         let limit = max(120, sheetConfig.maximumListHeight)
         tableHeightConstraint?.constant = min(content, limit)
         tableView.isScrollEnabled = content > limit + 0.5
     }
 
-    /// 分区标题行高度：第一区不占位，打开标题时按 35 点给标题留位置。
-    private func sectionHeaderHeight() -> CGFloat {
-        sheetConfig.openSectionTitle ? 35 : sheetConfig.sectionHeight
+    /// 分区标题行高度：第一区不占位；打开标题时为 35 点，**分区没有标题时自动收缩成普通间距**。
+    private func headerHeight(forSection section: Int) -> CGFloat {
+        guard section > 0, section < sections.count else { return section == 0 ? 0.01 : 0 }
+        guard sheetConfig.openSectionTitle else { return sheetConfig.sectionHeight }
+        return sections[section].type.title.isEmpty ? sheetConfig.sectionHeight : 35
     }
 
     /// 标题行：标题居中，左侧关闭按钮（向下箭头），右侧自定义按钮（默认“确定”）。
@@ -532,7 +534,7 @@ extension BoneDrawerSheetView: UITableViewDataSource, UITableViewDelegate {
     }
 
     public func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-        section == 0 ? 0.01 : sectionHeaderHeight()
+        headerHeight(forSection: section)
     }
 
     public func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
@@ -540,7 +542,8 @@ extension BoneDrawerSheetView: UITableViewDataSource, UITableViewDelegate {
     }
 
     public func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-        guard sheetConfig.openSectionTitle, section > 0 else { return nil }
+        guard sheetConfig.openSectionTitle, section > 0,
+              !sections[section].type.title.isEmpty else { return nil }
         let container = UIView()
         container.backgroundColor = .clear
         let label = UILabel()

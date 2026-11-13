@@ -53,7 +53,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 }
 
 final class DemoViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
-    private let scenes = ["居中确认框", "输入框与键盘", "底部操作列表", "顶部通知", "侧边面板", "长内容滚动", "注入竖向折叠", "注入横向折叠", "自定义 Alert 尺寸", "Alert 长内容上限", "Alert 竖排按钮", "Alert 窄空间", "自定义字体与间距", "即时调整内容样式", "独立 Window 与多 Scene", "Toast 顶部长条", "Toast 底部长条", "Toast 中间方块", "抽屉式选择", "玻璃遮罩"]
+    private let scenes = ["居中确认框", "输入框与键盘", "底部操作列表", "顶部通知", "侧边面板", "长内容滚动", "注入竖向折叠", "注入横向折叠", "自定义 Alert 尺寸", "Alert 长内容上限", "Alert 竖排按钮", "Alert 窄空间", "自定义字体与间距", "即时调整内容样式", "独立 Window 与多 Scene", "Toast 顶部长条", "Toast 底部长条", "Toast 中间方块", "抽屉式选择", "玻璃遮罩", "抽屉：单组单选", "抽屉：加一组拖动", "抽屉：固定高度滚动"]
     /// 每个场景一句话说明，直接告诉使用者这里该看什么。
     private let sceneDetails = [
         "标题、正文、确认/取消，可调对齐与按钮排列",
@@ -75,7 +75,10 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         "底部长条，可点底层页面",
         "中间方块，160–280 点随内容增大",
         "阅读器式抽屉：分组列表、单选、带抓手",
-        "玻璃模糊遮罩：透明度与虚化各自可调"
+        "玻璃模糊遮罩：透明度与虚化各自可调",
+        "只有一个单选分区，右上“确定”提交",
+        "单选 + 拖动排序两个分区，拖完再提交",
+        "面板高度固定，行数超出时列表内部滚动"
     ]
     private let sceneIcons = [
         "rectangle.center.inset.filled", "keyboard", "list.bullet.rectangle",
@@ -84,13 +87,15 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         "arrow.up.and.down", "rectangle.grid.1x2", "arrow.down.right.and.arrow.up.left",
         "textformat.size", "slider.horizontal.3", "macwindow.on.rectangle",
         "rectangle.topthird.inset.filled", "rectangle.bottomthird.inset.filled", "square.inset.filled",
-        "list.bullet.below.rectangle", "aqi.medium"
+        "list.bullet.below.rectangle", "aqi.medium",
+        "checkmark.circle", "line.3.horizontal", "arrow.up.and.down.text.horizontal"
     ]
     /// 场景分组；scene-N 编号保持不变，只调整展示顺序。
     private let groups: [(title: String, indices: [Int])] = [
         ("常用弹窗", [0, 1, 2, 18, 3, 4]),
         ("布局与保留区域", [5, 6, 7, 8, 9, 10, 11]),
         ("内容样式", [12, 13, 19]),
+        ("抽屉变体", [20, 21, 22]),
         ("独立窗口", [14]),
         ("Toast", [15, 16, 17])
     ]
@@ -466,6 +471,57 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
                 : selectedToastDuration
             popover = BoneToastView(message: toastMessage(style: style), type: selectedToastType,
                                     style: style, duration: duration)
+        case 20:
+            // 变体 1：只有一个单选分区。
+            let single = BoneDrawerSheetView(title: "翻页方式")
+            for (text, value, selected) in [("平移", "0", true), ("仿真", "1", false), ("上下", "2", false)] {
+                single.addButton(text: text, value: value,
+                                 icon: UIImage(systemName: "book"),
+                                 inSection: .singleSelect("翻页", selected))
+            }
+            single.sheetConfig.openSectionTitle = true
+            single.sheetConfig.cellIconBackgroundColor = UIColor.systemIndigo.withAlphaComponent(0.12)
+            single.sheetConfig.cellIconTint = .systemIndigo
+            single.showsConfirmButton = true
+            single.selectAction { [weak self] selections in
+                self?.record("单选提交：\(selections.map(\.text).joined(separator: "、"))")
+            }
+            popover = single
+        case 21:
+            // 变体 2：单选 + 拖动排序。
+            let drag = BoneDrawerSheetView(title: "翻页与排序")
+            drag.addButton(text: "平移", value: "0", icon: UIImage(systemName: "book"),
+                           inSection: .singleSelect("翻页", true))
+            drag.addButton(text: "仿真", value: "1", icon: UIImage(systemName: "book"),
+                           inSection: .singleSelect("翻页", false))
+            for (index, text) in ["第一章", "第二章", "第三章"].enumerated() {
+                drag.addButton(text: text, value: "\(index)", icon: UIImage(systemName: "line.3.horizontal"),
+                               inSection: .drag("拖动排序"))
+            }
+            drag.sheetConfig.openSectionTitle = true
+            drag.sheetConfig.cellIconBackgroundColor = UIColor.systemTeal.withAlphaComponent(0.12)
+            drag.sheetConfig.cellIconTint = .systemTeal
+            drag.showsConfirmButton = true
+            drag.selectAction { [weak self] selections in
+                self?.record("提交：\(selections.map(\.text).joined(separator: "、"))")
+            }
+            popover = drag
+        case 22:
+            // 变体 3：固定面板高度，行数超出时列表内部滚动。
+            let scrolling = BoneDrawerSheetView(title: "长列表")
+            for index in 1...14 {
+                scrolling.addButton(text: "选项 \(index)", value: "\(index)",
+                                    icon: UIImage(systemName: index % 2 == 0 ? "circle" : "square"),
+                                    inSection: .singleSelect("可滚动列表", index == 1))
+            }
+            scrolling.sheetConfig.openSectionTitle = true
+            scrolling.sheetConfig.maximumListHeight = 240   // 固定的列表可视高度
+            scrolling.sheetConfig.cellIconBackgroundColor = UIColor.systemBlue.withAlphaComponent(0.10)
+            scrolling.showsConfirmButton = true
+            scrolling.selectAction { [weak self] selections in
+                self?.record("滚动列表提交：\(selections.map(\.text).joined(separator: "、"))")
+            }
+            popover = scrolling
         case 19:
             let backdropSheet = BoneActionSheetView(
                 title: "玻璃遮罩",

@@ -76,8 +76,8 @@ open class BoneDrawerSheetView: BonePopoverView {
         public var maximumListHeight: CGFloat = 500
         /// 标题上下留白，默认 10 点；调小则标题更贴近抓手/顶边。
         public var headerTopSpacing: CGFloat = 10
-        /// 标题与列表之间的间距，默认 10 点。
-        public var listTopSpacing: CGFloat = 10
+        /// 标题与列表之间的间距，默认 16 点。
+        public var listTopSpacing: CGFloat = 16
 
         public init() {}
     }

@@ -164,6 +164,48 @@ final class PopoverDemoUITests: XCTestCase {
         XCTAssertTrue(app.cells["scene-18"].waitForExistence(timeout: 5))
     }
 
+    /// 三个抽屉变体：单组单选、单选+拖动、固定高度滚动列表。
+    /// 用 `--demo-scene` 直接打开，避免在分组列表里滚动定位带来的坐标误差。
+    @MainActor
+    func testDrawerVariantsOpenAndScroll() {
+        let app = XCUIApplication()
+
+        func open(scene: Int, title: String) {
+            app.terminate()
+            app.launchArguments = ["--demo-home", "--demo-scene", String(scene)]
+            app.launch()
+            XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 10),
+                          "场景 \(scene) 没有打开：\(title)")
+            XCTAssertTrue(app.tables["drawer-table"].waitForExistence(timeout: 5))
+        }
+
+        // 20：只有一组单选
+        open(scene: 20, title: "翻页方式")
+        XCTAssertTrue(app.cells["drawer-row-0-0"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.cells["drawer-row-0-2"].exists)
+        XCTAssertFalse(app.cells["drawer-row-1-0"].exists, "单组单选不应有第二个分区")
+        capture("drawer-single-section")
+
+        // 21：单选 + 拖动
+        open(scene: 21, title: "翻页与排序")
+        XCTAssertTrue(app.cells["drawer-row-0-1"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.cells["drawer-row-1-2"].exists, "拖动分区应有 3 行")
+        capture("drawer-drag-section")
+
+        // 22：固定高度 + 内部滚动
+        open(scene: 22, title: "长列表")
+        XCTAssertTrue(app.cells["drawer-row-0-0"].waitForExistence(timeout: 5))
+        let last = app.cells["drawer-row-0-13"]
+        XCTAssertFalse(last.isHittable, "第 14 行应在可视区外")
+        var swipes = 0
+        while !last.isHittable && swipes < 6 {
+            app.tables["drawer-table"].swipeUp()
+            swipes += 1
+        }
+        XCTAssertTrue(last.isHittable, "滚动后应能看到最后一行（swipes=\(swipes)）")
+        capture("drawer-scrolling-list")
+    }
+
     @MainActor
     private func capture(_ name: String) {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())

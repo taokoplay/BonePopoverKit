@@ -6,16 +6,21 @@ BonePopoverKit 是基于 UIKit 的独立弹窗组件，通过 Swift Package 集�
 
 参数表统一采用“字段、名称、默认值、说明”，每个字段单独一行。样式、材质外观、布局、动画、窗口与交互分别配置，默认值和生效范围在对应表格中说明。
 
+底部操作列表当前统一使用 `BoneDrawerSheetView`，旧 `BoneActionSheetView` / `PopoverAction` 已删除。升级已有调用请先看 [操作列表迁移表](Migration.md#action-sheet-migration)，`v0.1.0` 的功能调整与修复见 [更新日志](../CHANGELOG.md#v0.1.0)。
+
 ## 目录
 
 - [1. 环境与安装](#installation)
 - [2. 快速开始与展示宿主](#quick-start)
 - [3. 内置确认框、输入框、操作列表与 Toast](#presets)
-  - [3.4 Toast 提示](#toast)
+  - [3.3 操作列表](#action-sheet)
+  - [3.4 选择、排序与固定高度滚动](#sheet-variants)
+  - [3.5 Toast 提示](#toast)
 - [4. 字体、对齐与内容间距](#titles)
 - [5. 外观与液态玻璃](#appearance)
 - [6. 弹窗位置与尺寸](#layout)
 - [7. 背景、外部点击和触摸穿透](#outside-touch)
+  - [7.4 玻璃遮罩与不透明度](#backdrop-glass)
 - [8. 多方向滑动关闭](#swipe)
 - [9. 动画](#animation)
 - [10. 回调、关闭拦截与状态](#lifecycle)
@@ -39,9 +44,9 @@ BonePopoverKit 是基于 UIKit 的独立弹窗组件，通过 Swift Package 集�
 | 原生液态玻璃 | 使用包含对应 API 的新 SDK 和编译器构建，运行于 iOS 26+ |
 | Duo 折叠 / 摄像头保留区域 | 使用 Xcode 27.1 / Swift 6.4 构建，运行于 iOS 27.1+ |
 
-Xcode 中选择 **File → Add Package Dependencies**，输入 `https://github.com/taokoplay/BonePopoverKit.git`，选择 `main` 分支，再给 App target 添加 `BonePopoverKit` library product。
+Xcode 中选择 **File → Add Package Dependencies**，输入 `https://github.com/taokoplay/BonePopoverKit.git`，选择 **Up to Next Minor Version**、最低版本 `0.1.0`，再给 App target 添加 `BonePopoverKit` library product。
 
-其他 Swift Package 可使用 `.package(url: "https://github.com/taokoplay/BonePopoverKit.git", branch: "main")`，并为调用组件的 target 添加同名 product。本地开发可用 Add Local 选择组件目录，或使用 `.package(path: "../BonePopoverKit")`。
+其他 Swift Package 可使用 `.package(url: "https://github.com/taokoplay/BonePopoverKit.git", .upToNextMinor(from: "0.1.0"))`，并为调用组件的 target 添加同名 product。本地开发可用 Add Local 选择组件目录，或使用 `.package(path: "../BonePopoverKit")`；需要跟随开发分支时使用 `.package(url: "https://github.com/taokoplay/BonePopoverKit.git", branch: "main")`。
 
 业务文件导入：
 
@@ -84,7 +89,7 @@ func showSaveConfirmation(from presenter: UIViewController) {
 
 | 展示方式 | 适用场景 |
 | --- | --- |
-| `show(from: presenter, animated: true)` | 页面内展示，覆盖 presenter.view |
+| `show(from: presenter, animated: true)` | 页面内展示；导航/标签容器自动选择当前内容页，不改变页面列表 |
 | `show(over: sourceWindow, animated: true)` | 独立 Window，绑定明确的源窗口及所属 Scene |
 | `show(in: scene, animated: true)` | 独立 Window，从明确的 Scene 选择有效业务宿主 |
 | `show()` | 独立 Window，仅当恰好一个前台活动 Scene 时自动选择上下文 |
@@ -92,7 +97,7 @@ func showSaveConfirmation(from presenter: UIViewController) {
 
 展示方法返回 `Bool`。同一实例已经展示、已有父控制器、正在被其他方式呈现、宿主未上屏或场景不明确时，不应继续假定展示成功。
 
-**覆盖范围取决于入口。** `show(from:)` 添加到传入控制器的 view，覆盖导航栏/标签栏时传入对应容器控制器；其余入口创建独立透明窗口。层级、输入接管、导航、恢复与多 Scene 规则见 [独立 Window 模式](WindowPresentation.md)。窗口创建选项统一在 `configuration.window` 设置，本次展示保存快照；内容样式和交互配置可在显示期间修改。
+**覆盖范围取决于入口。** `show(from:)` 在内容页的 view 内展示；传入导航栏或标签栏容器时，自动选择当前内容页作为宿主，避免把弹层加入导航返回栈或标签列表。需要覆盖导航栏、标签栏及整个业务窗口时使用 `show(over: sourceWindow)`，或用 `show(in: scene)` 明确目标 Scene。层级、输入接管、导航、恢复与多 Scene 规则见 [独立 Window 模式](WindowPresentation.md)。窗口创建选项统一在 `configuration.window` 设置，本次展示保存快照；内容样式和交互配置可在显示期间修改。
 
 关闭使用 `hidden(_:)` 或 `dismissPopover(...)`，不要用系统的 `dismiss(animated:)` 代替：
 
@@ -128,7 +133,7 @@ alert.show(from: presenter)
 | `.horizontal` | 明确要求左右等宽排列 |
 | `.vertical` | 明确要求上下等宽排列，确认在上、取消在下 |
 
-布局属性可在显示前或显示期间修改，会自动请求重新测量。若在显示期间直接修改按钮标题，调用 `invalidatePopoverLayout()` 重新检查文案所需宽度。`buttonLayout` 是 `configuration.contentStyle.buttonLayout` 的便利入口；整份替换 `configuration` 会同时替换它，先选配置预设再定制内容样式。操作列表仍保持各动作竖排。
+布局属性可在显示前或显示期间修改，会自动请求重新测量。若在显示期间直接修改按钮标题，调用 `invalidatePopoverLayout()` 重新检查文案所需宽度。`buttonLayout` 是 `configuration.contentStyle.buttonLayout` 的便利入口；整份替换 `configuration` 会同时替换它，先选配置预设再定制内容样式。操作列表使用 UITableView 行，布局由 `sheetConfig` 控制。
 
 字体、颜色、对齐和间距统一通过 `configuration.contentStyle` 定制，详见第 4 节。`titleLabel`、`messageLabel`、`confirmButton`、`cancelButton` 继续公开，便于修改文本、图标、辅助功能等 UIKit 属性。按钮使用 `UIButton.Configuration`，例如在加载视图后修改标题：
 
@@ -161,99 +166,122 @@ input.show(from: presenter)
 
 `textField` 是公开的 `UITextField`，可直接设置密码输入、自动填充、文本内容类型和其他 UIKit 属性。
 
+<a id="action-sheet"></a>
+
 ### 3.3 操作列表
 
-```swift
-let sheet = BoneActionSheetView(
-    title: "项目操作",
-    message: "选择要执行的操作",
-    actions: [
-        PopoverAction("分享", image: UIImage(systemName: "square.and.arrow.up")) {
-            print("执行分享")
-        },
-        PopoverAction("刷新状态", dismissesPopover: false) {
-            print("刷新后继续保留弹窗")
-        },
-        PopoverAction("删除", role: .destructive) {
-            print("执行删除业务")
-        }
-    ],
-    cancelTitle: "返回"
-)
-sheet.titleAlignment = .center
-sheet.show(from: presenter)
-```
-
-也可以先建面板再逐个添加动作，`addButton` / `addAction` 返回对应的 `UIButton`，方便继续设置辅助功能标识等属性：
+底部操作列表统一使用 `BoneDrawerSheetView(title:message:)`，列表本体为 `UITableView(style: .grouped)`。普通动作、单选、多选、拖动排序和固定高度滚动都通过这一组件配置；选择与排序见第 3.4 节。
 
 ```swift
-let sheet = BoneActionSheetView(title: "项目操作", message: "选择要执行的操作")
-let share = sheet.addButton("分享", image: UIImage(systemName: "square.and.arrow.up")) {
+let sheet = BoneDrawerSheetView(title: "项目操作", message: "选择要执行的操作")
+sheet.addButton(text: "分享", icon: UIImage(systemName: "square.and.arrow.up"),
+                accessibilityIdentifier: "sheet-share") {
     print("执行分享")
 }
-share.accessibilityIdentifier = "sheet-share"
-sheet.addButton("刷新状态", dismissesPopover: false) { print("刷新后继续保留弹窗") }
-sheet.addButton("删除", role: .destructive) { print("执行删除业务") }
-sheet.cancelTitle = "返回"
+sheet.addButton(text: "刷新状态", dismissesPopover: false) {
+    print("刷新后继续保留弹窗")
+}
+sheet.addButton(text: "删除", style: .destructive) {
+    print("执行删除业务")
+}
 sheet.show(from: presenter)
 ```
 
-`addAction` 接受完整 `PopoverAction`；两种写法可以混用，新按钮始终排在取消按钮之上，添加后立即重新测量，已展示时也会即时刷新高度。
+`init(title: String, message: String? = nil)` 只设置标题与可选说明，多行正文通过 `message` 传入。逐行调用 `addButton` 添加动作，**返回值为 `Void`**；行是表格 cell，辅助功能标识直接通过 `accessibilityIdentifier` 参数设置。
 
-操作列表默认在标题左侧显示向下箭头关闭按钮（阅读器默认头部样式，40 × 40 点圆形命中区，图标颜色跟随 `contentStyle.titleColor`），点击关闭弹窗；设置 `sheet.showsCloseButton = false` 可隐藏，标题随即回到内容左边距。`closeButton` 可直接访问，用于定制图标或辅助功能属性。
-
-文案可运行期替换且默认不变：`sheet.cancelTitle = "Dismiss"`，未设置时回退初始化参数，再回退“取消”；关闭按钮辅助功能标签走 `sheet.closeAccessibilityLabel`（默认“关闭”）。遮罩标签是 `popover.backdropAccessibilityLabel`，Toast 类型朗读描述是 `toast.typeDescriptions`，见第 7 节。
-
-`PopoverAction` 的字段如下，默认值来自其初始化参数：
-
-| 字段 | 名称 | 默认值 | 说明 |
+| `addButton` 参数 | 名称 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `title` | 动作标题 | 初始化时必传 | 按钮显示的文字。 |
-| `image` | 动作图标 | `nil` | 按钮的可选 UIImage 图标。 |
-| `role` | 视觉角色 | `.normal` | normal 使用普通颜色，destructive 使用红色强调。 |
-| `dismissesPopover` | 执行前关闭 | `true` | true 时先关闭再执行 handler；false 时立即执行并保留弹窗。 |
-| `handler` | 动作闭包 | 空闭包 `{}` | 点击时执行的业务逻辑，实际时机由 dismissesPopover 决定。 |
+| `text: String` | 行标题 | 必传 | 显示的文字。 |
+| `value: String` | 业务值 | `""` | 选择提交时与 text 一起回传。 |
+| `icon: UIImage?` | 行首图标 | `nil` | 不传时不占图标位置。 |
+| `style: ButtonStyle` | 文字样式 | `.default` | `.default` 普通色、`.highlight` 强调色、`.destructive` 红色；不会自动执行删除或增加二次确认。 |
+| `inSection: SectionType` | 分区 | `.normal("")` | 普通动作，或第 3.4 节的选择、排序分区。 |
+| `dismissesPopover: Bool` | 普通行执行前关闭 | `true` | 普通行先关闭再执行 callback；false 时立即执行并保留面板。选择型分区仍通过确定按钮提交。 |
+| `accessibilityIdentifier: String?` | 行辅助功能标识 | `nil` | 未设置时使用 `drawer-row-分区-行`；不用获取 UIButton 再赋值。 |
+| `callback: (() -> Void)?` | 普通行业务回调 | `nil` | 触发时机由 dismissesPopover 控制；选择型结果通过 selectAction 获取。 |
 
-`PopoverAction` 默认先关闭，再执行 handler；`dismissesPopover: false` 则立即执行 handler 并保留弹窗。`.destructive` 只表示操作的视觉角色，不会自动增加二次确认或执行删除逻辑。
+默认不附加取消行。左侧向下箭头关闭按钮默认显示（`showsCloseButton = true`），辅助功能标识为 `drawer-close`，命中区默认 40 × 40 点；默认内容边距下距面板左边 16 点。`showsCloseButton = false` 可隐藏；公开的 `titleLabel`、`messageLabel`、`closeButton` 可用于设置 UIKit 属性。标题默认居中，可通过 `titleAlignment` 修改；关闭按钮图标、大小与颜色使用 `contentStyle.closeButtonImage` / `closeButtonSize` / `titleColor`，辅助功能标签使用 `closeAccessibilityLabel`（默认“关闭”）。
 
-动作集合在初始化时提供。需要分组、多选、拖拽排序或 loading 流程时，使用自定义内容或业务子类。
+右侧按钮**默认隐藏**，加入选择型分区也不会自动显示。设置 `showsConfirmButton = true` 后，默认点击提交 `selectAction` 并关闭；`confirmTitle` 默认“确定”。`trailingButton` 可改文案或图标，`onTrailingButtonTap` 可完全接管点击，接管后按钮显示且不执行默认提交与关闭。左右按钮共用圆圈/玻璃外观，高度跟随 `contentStyle.closeButtonSize`；确认文字为 14 点 semibold，文字按钮宽度随文案调整，最小宽度为 `closeButtonSize + 8`。
 
-<a id="toast"></a>
+面板默认纯色 `systemGroupedBackground`，行背景为 `secondarySystemGroupedBackground`；顶部两角 16 点、无阴影、无背景遮罩，显示顶部抓手，0.15 秒底部滑入。贴底时，面板材质延伸并铺满底部安全区，列表和按钮仍在安全区上沿结束；设置正值底部外边距或避让键盘、保留区时，保留对应留白。
 
-### 3.4 抽屉式列表
+标题、说明与关闭按钮使用 `configuration.contentStyle`：默认标题为 17 点 semibold、居中，说明为 14 点，`contentInsets` 为 top 0、leading 0、bottom 20、trailing 0。表头左右留白、标题上下留白、到列表的间距及行样式通过 `sheetConfig` 配置；`buttonFont` / `buttonSpacing` / `buttonLayout` 等 Alert 按钮字段不控制表格行。
 
-阅读器那种「标题 + 抓手 + 分组列表」的底部抽屉，用法沿用旧实现：先建面板，再按分区逐个加行，提交结果通过 `selectAction` 回传。
+有说明文字时，`contentStyle.titleToContentSpacing` 控制“标题行底部 → 说明”的间距，`sheetConfig.listTopSpacing` 控制“说明 → 列表”的间距；标题行自身还包含上下留白。无说明文字时，`listTopSpacing` 直接控制“标题行底部 → 列表”的间距。
+
+| `sheetConfig` 字段 | 名称 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `openSectionTitle` | 显示分区标题 | `false` | 开启后显示后续非空分区的标题，首分区不占标题位。 |
+| `sectionHeight` | 分区间距 | 10 点 | 从第二个分区起，不显示标题或标题为空时的留白；开启非空标题时标题行固定为 35 点。 |
+| `fontSize` | 行字体 | `.boldSystemFont(ofSize: 16)` | 类型为 UIFont，控制表格行文字。 |
+| `cellHeight` | 行高 | 55 点 | 固定行高，不使用估算行高。 |
+| `highlightColor` | 强调色 | `.tintColor` | 强调文字、勾选与默认图标颜色。 |
+| `textAlignment` | 行文字对齐 | `.left` | 不影响表头标题对齐。 |
+| `cellBackgroundColor` | 行背景 | `.secondarySystemGroupedBackground` | 与 appearance.backgroundColor 控制的面板底色独立。 |
+| `cellCornerRadius` | 分组行圆角 | 10 点 | 首尾行的分组背景圆角。 |
+| `horizontalInset` | 行背景水平留白 | 16 点 | 行背景距面板边缘的距离。 |
+| `cellSeparatorColor` | 行分隔线颜色 | `.separator` | 使用自绘行间分隔线；系统分隔线关闭。 |
+| `cellIconSize` | 图标边长 | 32 点 | 仅有 icon 时占位。 |
+| `cellIconCornerRadius` | 图标圆角 | 9 点 | 图标区域的圆角。 |
+| `cellIconBackgroundColor` | 图标底色 | `nil` | 默认不画底板。 |
+| `cellIconTint` | 图标颜色 | `nil` | nil 时跟随 highlightColor。 |
+| `cellIconSpacing` | 图标文字间距 | 12 点 | 带图标行的分隔线从文字起点缩进。 |
+| `headerInset` | 表头左右留白 | 16 点 | 标题、说明及两侧按钮相对内容区的额外水平留白；居中标题始终以面板中心为准。 |
+| `headerTopSpacing` | 标题上下最小留白 | 10 点 | 标题在表头内垂直居中；关闭按钮较高时，实际留白可大于此值。 |
+| `listTopSpacing` | 到列表的间距 | 16 点 | 标题行或说明下方到列表的距离。 |
+| `maximumListHeight` | 列表高度上限 | 500 点 | 超出后列表内部滚动；有效上限至少为 120 点，短列表仍按内容收缩。 |
+
+旧 `BoneActionSheetView`、`PopoverAction` 已删除，不提供兼容 alias。旧 `actions` / `addAction`、返回 UIButton 的 `addButton`、`actionButtons` / `cancelButton` / `cancelTitle` 均需迁移，不能仅替换类名；具体映射见[操作列表迁移](Migration.md#action-sheet-migration)。Alert 自身的取消按钮与 `alert.cancelTitle` 保留。
+
+<a id="34-抽屉式列表"></a>
+<a id="sheet-variants"></a>
+
+### 3.4 选择、排序与固定高度滚动
+
+本节继续使用 `BoneDrawerSheetView`。分区标题相同即归入同一分区，同一标题应使用相同分区类型；单选、多选的 Bool 只决定新行的初始选中状态。
+
+| `SectionType` | 点击与提交行为 |
+| --- | --- |
+| `.normal("标题")` | 点行按 dismissesPopover 决定先关闭再回调，或即时回调保持面板；默认分区为 `.normal("")`。 |
+| `.singleSelect("标题", selected)` | 分区内单选，点行仅更新选中状态。 |
+| `.multipleSelect("标题", selected)` | 分区内多选，点行切换选中状态。 |
+| `.drag("标题")` | 仅同分区拖动排序，提交该分区按当前顺序排列的全部行。 |
+
+选择、排序型分区通过 `showsConfirmButton = true` 与 `selectAction` 统一提交，回调类型为 `[(text: String, value: String)]`。点击确定后关闭并回传结果，点左侧关闭按钮不会提交。需要“点一行立即执行”的用法时，使用 `.normal` 行的 `callback`。
 
 ```swift
-let drawer = BoneDrawerSheetView(title: "阅读设置")
-drawer.addButton(text: "平移", value: "0", inSection: .singleSelect("翻页", true))
-drawer.addButton(text: "仿真", value: "1", inSection: .singleSelect("翻页", false))
-drawer.addButton(text: "浅色", value: "light", inSection: .multipleSelect("主题", false))
-drawer.addButton(text: "深色", value: "dark", inSection: .multipleSelect("主题", false))
-drawer.addButton(text: "恢复默认", style: .highlight, inSection: .normal("")) {
-    print("恢复默认")
+let sheet = BoneDrawerSheetView(title: "阅读设置", message: "选择偏好并调整显示顺序")
+sheet.addButton(text: "平移", value: "0", inSection: .singleSelect("翻页", true))
+sheet.addButton(text: "仿真", value: "1", inSection: .singleSelect("翻页", false))
+sheet.addButton(text: "浅色", value: "light", inSection: .multipleSelect("主题", false))
+sheet.addButton(text: "深色", value: "dark", inSection: .multipleSelect("主题", false))
+sheet.addButton(text: "书架", value: "shelf", inSection: .drag("显示顺序"))
+sheet.addButton(text: "书签", value: "bookmarks", inSection: .drag("显示顺序"))
+sheet.sheetConfig.openSectionTitle = true
+sheet.showsConfirmButton = true
+sheet.selectAction { selections in
+    print(selections) // 单选、多选的选中项，以及按当前顺序排列的拖动项
 }
-drawer.sheetConfig.openSectionTitle = true
-drawer.selectAction { selections in
-    // [(text: String, value: String)]
-    print(selections)
-}
-drawer.show(from: presenter)
+sheet.show(from: presenter)
 ```
 
-- 列表本体是 `UITableView(style: .grouped)`（沿用阅读器实现）：cell 透明、分组底色与圆角由 cell 内部背景层承担、系统分隔线全关、行间分隔线自绘；禁用估算行高，行高取 `cellHeight`。
-- 分区类型：`.normal` 点击执行回调并关闭；`.singleSelect` 分区内单选；`.multipleSelect` 分区内多选；`.drag` 可在分区内拖动排序，并按当前顺序提交。
-- 标题相同即同一分区，第二个参数只决定新行是否默认选中；有选择型分区时才出现“确定”按钮，`selectAction` 在点“确定”后回调。
-- `sheetConfig` 可调 `openSectionTitle`、`sectionHeight`、`fontSize`、`cellHeight`、`highlightColor`、`textAlignment`，以及颜色相关：`cellBackgroundColor`（行背景，默认 `.secondarySystemGroupedBackground`，即浅色白、深色 #1C1C1E）、`cellCornerRadius`（分组首尾行圆角，默认 10 点）、`horizontalInset`（行背景距面板边缘，默认 16 点）、`cellSeparatorColor`（行间分隔线，默认系统分隔色）。
-- 面板底色由 `configuration.appearance.backgroundColor` 控制，抽屉默认用 `systemGroupedBackground`（浅灰），与行背景相互独立，两者合起来就是系统分组列表的「灰底白行」。
-- 头部布局与阅读器一致：标题居中，**左侧关闭按钮**（与操作列表相同的向下箭头，iOS 26+ 为液态玻璃圆圈，可用 `contentStyle.closeButtonImage` / `closeButtonSize` 换图标与尺寸）、**右侧确定按钮沿用同一套圆圈外观**（同高度、同胶囊圆角、同底色，只是内容从图标换成文字），**右侧按钮默认隐藏**，需要统一提交时再打开 `showsConfirmButton`。
-- 两种取结果方式：
-  - **多选（或单选也要统一提交）**：`drawer.showsConfirmButton = true`，点右侧按钮统一提交，`selectAction` 回传全部选中项并关闭；
-  - **单选/立即执行**：用 `.normal("")` 行加 `callback`，点行即回调并关闭，右侧按钮保持隐藏（原实现的单选用法）。
-- 右侧按钮可接管：`drawer.trailingButton` 改文案/图标，或 `drawer.onTrailingButtonTap` 完全接管点击（接管后按钮显示且不自动提交关闭）；`confirmTitle`、`closeAccessibilityLabel` 分别改确定文案与关闭按钮的辅助功能标签。
-- 列表高度按分区自己算（`行数 × cellHeight + 分区间距`），超过 `sheetConfig.maximumListHeight`（默认 500 点）时列表内部滚动，外层弹层不再嵌套滚动。
-- 表面沿用 `.bottomSheet`（仅圆顶部两角、无阴影、0.15 秒滑入），默认显示抓手、标题居中；抽屉把标题定为 17 点 semibold，表头左右留白 `sheetConfig.headerInset`（默认 16 点），关闭按钮与右侧按钮都按此贴边。
-- 行可以带图标：`addButton(text:value:icon:style:inSection:callback:)` 传 `icon` 才画，不传的行保持原来的纯文字布局。尺寸与外观在 `sheetConfig`：`cellIconSize`（默认 32 点）、`cellIconCornerRadius`（默认 9 点）、`cellIconBackgroundColor`（默认 `nil` 不画底板，设浅色就是系统设置的「色块 + 图标」）、`cellIconTint`（默认跟随 `highlightColor`）、`cellIconSpacing`（图标与文字间距，默认 12 点）。带图标的行分隔线自动从文字起始处缩进。
+固定高度滚动也使用这一组件。列表按“行数 × cellHeight + 分区间距”计算高度；长列表超过 `maximumListHeight` 后固定在该上限并内部滚动，短列表仍按内容收缩。设置的上限小于 120 点时按 120 点处理；它只限制列表区域，整体面板还包含抓手、表头、说明和内容内边距。下面的 30 行使用 280 点列表区域：
+
+```swift
+let sheet = BoneDrawerSheetView(title: "全部操作", message: "向上滚动查看更多")
+sheet.sheetConfig.maximumListHeight = 280
+for index in 1...30 {
+    sheet.addButton(text: "操作 \(index)", value: "\(index)") {
+        print("执行操作 \(index)")
+    }
+}
+sheet.show(from: presenter)
+```
+
+组件默认设置 `configuration.scrollsOverflow = false`，由 UITableView 负责滚动。运行期间调整 `sheetConfig.fontSize`、`cellHeight`、`headerTopSpacing`、`listTopSpacing` 等会刷新列表与布局；无需更换组件。
+
+<a id="toast"></a>
 
 ### 3.5 Toast 提示
 
@@ -321,7 +349,7 @@ loading.duration = 2
 
 ## 4. 字体、对齐与内容间距
 
-确认框、输入框和操作列表共用 `PopoverContentStyle`，从 `configuration.contentStyle` 设置。它是值类型，可创建一份样式复用于多个弹窗。内置标题位于内容顶部，默认字体为 **`UIFont.boldSystemFont(ofSize: 18)`**，正文默认 **`UIFont.systemFont(ofSize: 17)`**。
+确认框、输入框和操作列表的标题、说明及关闭按钮通过 `configuration.contentStyle` 设置；它是值类型，可复用于多个弹窗。Alert 标题默认 **18 点粗体**、正文 **17 点**；`BoneDrawerSheetView` 标题默认 **17 点 semibold**、居中，说明为 **14 点**，内容内边距 top/leading/trailing 为 0、bottom 为 20。操作列表行字体、行高、分隔线及表头间距通过 `sheetConfig` 设置，见第 3.3 节。以下为 Alert 的样式示例：
 
 ```swift
 let alert = BoneAlertView(title: "保存设置", message: "确认保存当前配置？") {}
@@ -353,31 +381,31 @@ alert.configuration.contentStyle.contentToButtonsSpacing = 24
 
 | 字段 | 名称 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `titleFont` | 标题字体 | `.boldSystemFont(ofSize: 18)` | 确认框、输入框和操作列表的标题基础字体。 |
-| `messageFont` | 正文字体 | `.systemFont(ofSize: 17)` | 正文和说明文字的基础字体。 |
-| `buttonFont` | 按钮字体 | `.systemFont(ofSize: 17)` | 确认、取消及操作列表按钮的基础字体。 |
+| `titleFont` | 标题字体 | `.boldSystemFont(ofSize: 18)` | Alert 标题基础字体；操作列表默认 17 点 semibold。 |
+| `messageFont` | 正文字体 | `.systemFont(ofSize: 17)` | 正文和说明文字的基础字体；操作列表默认 14 点。 |
+| `buttonFont` | 按钮字体 | `.systemFont(ofSize: 17)` | Alert 确认、取消按钮字体；操作列表行使用 `sheetConfig.fontSize`。 |
 | `inputFont` | 输入字体 | `.systemFont(ofSize: 17)` | 单字段输入框的基础字体。 |
 | `titleColor` | 标题颜色 | `.label` | 标题文字颜色，支持系统深浅色。 |
 | `messageColor` | 正文颜色 | `.secondaryLabel` | 正文文字颜色，支持系统深浅色。 |
-| `titleAlignment` | 标题对齐 | `.left` | 独立控制标题对齐，支持左、中、右等 `NSTextAlignment` 取值。 |
+| `titleAlignment` | 标题对齐 | `.left` | 独立控制标题对齐；操作列表默认 `.center`。 |
 | `messageAlignment` | 正文对齐 | `.natural` | 按正文书写方向对齐，也可明确指定。 |
-| `contentInsets` | 内容内边距 | 四边各 24 | 内容与面板内容区域之间的留白，不包含抓手。 |
-| `titleToContentSpacing` | 标题到内容间距 | 14 | 标题到正文或输入框的距离。 |
-| `contentToButtonsSpacing` | 内容到按钮间距 | 14 | 正文或输入框到按钮区域；无正文操作列表中为标题到首个按钮的距离。 |
-| `buttonSpacing` | 按钮间距 | 12 | 横排、竖排按钮及操作列表动作之间的距离。 |
-| `buttonContentInsets` | 按钮内边距 | 上下 12，leading/trailing 各 16 | 按钮文字和图标周围的留白。 |
+| `contentInsets` | 内容内边距 | 四边各 24 | 内容区域留白，不包含抓手；操作列表默认 top/leading/trailing 为 0、bottom 为 20。 |
+| `titleToContentSpacing` | 标题到内容间距 | 14 | 标题到正文或输入框的距离；操作列表无说明时到列表的距离使用 `sheetConfig.listTopSpacing`。 |
+| `contentToButtonsSpacing` | 内容到按钮间距 | 14 | Alert 正文或输入框到按钮区域的距离。 |
+| `buttonSpacing` | 按钮间距 | 12 | Alert 横排、竖排按钮之间的距离；不控制表格行间距。 |
+| `buttonContentInsets` | 按钮内边距 | 上下 12，leading/trailing 各 16 | Alert 按钮文字和图标周围的留白。 |
 | `closeButtonImage` | 操作列表关闭按钮图标 | `nil` | `nil` 使用 12 点 medium 的 `chevron.down`；替换后仍沿用标题色。 |
 | `closeButtonSize` | 操作列表关闭按钮边长 | 40 点 | 方形命中区；非有限或非正值回退 40 点。 |
 | `adjustsFontForContentSizeCategory` | 动态字号 | `true` | 随系统文字大小缩放基础字体；设为 `false` 使用固定字号。 |
-| `buttonLayout` | Alert 按钮排列 | `.automatic` | 支持自动、等宽横排、等宽竖排；操作列表始终竖排。 |
+| `buttonLayout` | Alert 按钮排列 | `.automatic` | 支持自动、等宽横排、等宽竖排；不参与操作列表的 UITableView 布局。 |
 
-传入基础字体即可，无需预先调用 `scaledFont`。默认系统字号下标题为 18 点粗体；开启 Dynamic Type 后会随系统文字大小变化。要求固定字号时将 `adjustsFontForContentSizeCategory` 设为 `false`。Alert 的自动按钮排列会综合实际字体、内部留白和按钮间距判断宽度；辅助功能字号下自动使用竖排，关闭字体缩放也保留这一排列策略。按钮最小高度 44 点，输入框最小高度 48 点；大字体或更大的按钮内边距可继续撑高。
+传入基础字体即可，无需预先调用 `scaledFont`。Alert 默认系统字号下标题为 18 点粗体；开启 Dynamic Type 后会随系统文字大小变化。要求固定字号时将 `adjustsFontForContentSizeCategory` 设为 `false`。Alert 的自动按钮排列会综合实际字体、内部留白和按钮间距判断宽度；辅助功能字号下自动使用竖排，关闭字体缩放也保留这一排列策略。Alert 按钮最小高度 44 点，输入框最小高度 48 点；大字体或更大的按钮内边距可继续撑高。操作列表的行高由 `sheetConfig.cellHeight` 决定，调整行字体时一并设置所需行高。
 
-`BoneAlertView.titleAlignment`、`BoneActionSheetView.titleAlignment` 以及 Alert 的 `buttonLayout` 都直接读写同一份 `contentStyle`。标题支持 `.left`、`.center`、`.right`，不会改变正文的独立对齐。样式是内置控件的统一来源，直接修改 label 的字体、颜色或对齐，会在下一次样式刷新（包括外观配置或系统字号变化）时被覆盖。按钮标题、图标、角色及已有输入内容和焦点会保留。
+`BoneAlertView.titleAlignment`、`BoneDrawerSheetView.titleAlignment` 以及 Alert 的 `buttonLayout` 都直接读写同一份 `contentStyle`。标题支持 `.left`、`.center`、`.right`，不会改变正文的独立对齐。直接修改 label 的字体、颜色或对齐，会在下一次样式刷新（包括外观配置或系统字号变化）时被覆盖。按钮标题、图标及已有输入内容和焦点会保留；操作列表行文字通过 `sheetConfig` 定制。
 
 整份赋值 `configuration` 会同时替换内容样式；仅修改 `configuration.appearance` 或 `layout` 则保留当前 `contentStyle`。同一份样式赋给多个弹窗后，各自保存副本，后续修改其中一个不会影响其他弹窗。自定义内容可以覆盖 `applyContentStyle()` 将样式应用到业务控件，并在构建完控件后主动调用一次；SDK 在配置和系统字号变化时调用该钩子，并请求宿主重新布局。
 
-`contentStyle` 负责内部字体和间距；外部留白、最大尺寸属于 `layout`，材质、圆角和阴影属于 `appearance`。间距负值按 0 处理，非有限值回退为对应默认值。内容栈不重复叠加外部已经避让的安全区。底部弹窗的抓手位于内容上方，因此标题到整个面板顶部的距离还会包含抓手区域。
+`contentStyle` 负责标题、说明和 Alert 按钮的内部样式；操作列表的表头、行与列表间距使用 `sheetConfig`。外部留白、最大尺寸属于 `layout`，材质、圆角和阴影属于 `appearance`。间距负值按 0 处理，非有限值回退为对应默认值。内容栈不重复叠加外部已经避让的安全区。底部弹窗的抓手位于内容上方，因此标题到整个面板顶部的距离还会包含抓手区域。
 
 <a id="appearance"></a>
 
@@ -419,7 +447,7 @@ popover.configuration.appearance.backdropGlassStyle = .systemThinMaterial
 `showsBackdrop = false` 会同时关掉压暗与虚化（遮罩整体关闭）；开启「减弱透明度」且 `respectsReduceTransparency` 为 `true`（默认）时玻璃不生效，只剩压暗，与系统的模糊降级一致。
 ### 5.2 外观字段
 
-字段通过 `configuration.appearance` 访问，下表默认值来自 `PopoverAppearance()`。`.classic` 将材质设为纯色、圆角设为 16 点；`.bottomSheet` 采用阅读器默认样式——纯色表面、`systemBackground`、圆角 16 点仅顶部两角、无抓手、无背景遮罩且不叠加阴影。
+字段通过 `configuration.appearance` 访问，下表默认值来自 `PopoverAppearance()`。`.classic` 将材质设为纯色、圆角设为 16 点；通用 `.bottomSheet` 使用纯色 `systemBackground`、圆角 16 点仅顶部两角、无抓手、无背景遮罩且不叠加阴影。`BoneDrawerSheetView` 在此基础上改用 `systemGroupedBackground` 并显示抓手。
 
 | 字段 | 名称 | 默认值 | 说明 |
 | --- | --- | --- | --- |
@@ -476,7 +504,7 @@ popover.show(from: presenter)
 | `.topBanner` | 顶部 | 560 点 | 顶部滑入 | 开，自动向上 |
 | `.sidePanel` | trailing 侧，高度填满 | 400 点 | trailing 侧滑入 | 开，自动向外 |
 
-`.bottomSheet` 按阅读器默认样式设定：纯色表面、圆角 16 点仅顶部两角、贴底无外部留白，宽度取所在可用区并受 560 点上限约束，默认不显示背景遮罩和抓手，也不叠加阴影，内置标题默认居中（左对齐时标题从关闭按钮右侧起排，其余对齐按整行计算）。`.topBanner` 的背景遮罩透明度默认是 0.12，不会自动消失；`.centerDialog` 和 `.sidePanel` 默认 0.32。
+通用 `.bottomSheet` 使用纯色表面、圆角 16 点仅顶部两角、贴底无外部留白，宽度取所在可用区并受 560 点上限约束，默认不显示背景遮罩和抓手，也不叠加阴影，内置标题默认居中。`BoneDrawerSheetView` 在此基础上使用分组面板底色并显示抓手；其标题与两侧按钮布局由 `sheetConfig.headerInset` 和 `titleAlignment` 控制。`.topBanner` 的背景遮罩透明度默认是 0.12，不会自动消失；`.centerDialog` 和 `.sidePanel` 默认 0.32。
 
 `BonePopoverView` 无配置初始化时默认使用居中预设；`BonePopoverView(contentView:)` 默认使用底部预设。直接创建 `PopoverConfiguration()` 的默认布局是底部。
 
@@ -555,7 +583,7 @@ alert.show(from: presenter)
 | `backdropAccessibilityLabel`（在 `BonePopoverView` 上） | 遮罩辅助功能标签 | `nil` | 默认 `NSLocalizedString("Dismiss")`；赋值后立即生效。 |
 | `appearance.backdropColor` | 遮罩颜色 | `.black` | 外部背景遮罩的颜色。 |
 | `appearance.backdropOpacity` | 遮罩不透明度 | 0.32 | 遮罩的视觉浓度；顶部通知预设为 0.12。 |
-| `appearance.backdropGlass` | 玻璃遮罩 | `false` | 是否把遮罩换成玻璃模糊；关闭时行为与旧版本一致。 |
+| `appearance.backdropGlass` | 玻璃遮罩 | `false` | 是否在压暗层之外叠加背景模糊；与 backdropOpacity 独立，需同时开启 showsBackdrop。 |
 | `appearance.backdropGlassStyle` | 玻璃遮罩材质 | `.systemUltraThinMaterial` | 玻璃开启时使用的模糊材质。 |
 | `dismissOnBackdropTap` | 外部点击关闭 | `true` | 不穿透时，点击面板外部是否请求关闭；输入框预设为 `false`。 |
 | `allowsEventPenetration` | 外部触摸穿透 | `false` | 是否让面板外部触摸进入底层页面或窗口。 |
@@ -600,6 +628,23 @@ popover.show(from: presenter)
 穿透只影响弹窗外部、并且位于展示容器范围内的触摸。穿透自动关闭针对点击结束，不表示任意拖动、滚动开始都会关闭。命中测试查询本身不会触发关闭。
 
 开启穿透时，SDK 不再把浮层作为辅助功能模态区域，底层页面仍可参与辅助功能导航。
+
+<a id="backdrop-glass"></a>
+
+### 7.4 玻璃遮罩与不透明度
+
+底部操作列表默认关闭背景遮罩。需要虚化底层页面时，显式打开 `showsBackdrop` 和 `appearance.backdropGlass`，再独立设置压暗程度：
+
+```swift
+let sheet = BoneDrawerSheetView(title: "玻璃遮罩")
+sheet.addButton(text: "完成") {}
+sheet.configuration.showsBackdrop = true
+sheet.configuration.appearance.backdropGlass = true
+sheet.configuration.appearance.backdropOpacity = 0 // 只虚化，不压暗；设为 0.12 可轻微压暗
+sheet.show(from: presenter)
+```
+
+`backdropGlassStyle` 默认 `.systemUltraThinMaterial`，可替换为其他 `UIBlurEffect.Style`。显示期间修改这些字段会实时刷新；`showsBackdrop = false` 同时隐藏模糊与压暗，系统开启降低透明度时不显示模糊。是否允许外部点击、关闭或穿透仍由对应交互字段控制。
 
 <a id="swipe"></a>
 
@@ -937,12 +982,14 @@ App 也需要使用支持该设备的新 SDK 构建。当前已有 Duo 模拟器
 
 ### 14.1 Demo 怎么运行
 
-打开 `Examples/BonePopoverDemo/BonePopoverDemo.xcodeproj`，选择可用 iPhone / iPad / Duo 目标运行。目录是相对于包根目录。
+打开 `Examples/BonePopoverDemo/BonePopoverDemo.xcodeproj`，选择可用 iPhone / iPad / Duo 目标运行。目录是相对于包根目录，共 23 个场景。
 
-- 主页面：先选外观、动画，再进入确认、输入、操作列表等场景。
+- 主页面：先选外观、动画，再进入确认、输入、操作列表等场景；默认操作列表（场景 2）使用 `BoneDrawerSheetView`。
+- “底部操作列表变体”：原分组选择场景 18 与场景 20/21/22 展示同一组件的单选、多选、同分区拖动和固定高度滚动。
 - “标题对齐”：选择左、中、右对齐后打开内置弹窗。
-- “自定义字体与间距”：预览统一样式的字体、内边距与段落/按钮间距。
-- “即时调整内容样式”：在弹窗内点击按钮，切换默认样式与大字号、宽间距，再切回。
+- “自定义字体与间距”：预览 Alert 的字体、内边距与段落/按钮间距。
+- “即时调整内容样式”（场景 13）：在 `BoneDrawerSheetView` 内即时调整行字体、行高和表头/列表间距，再切回默认值。
+- “玻璃遮罩”（场景 19）：在 `BoneDrawerSheetView` 上预览压暗与玻璃虚化。
 - “关闭交互”：设置背景、外部点击、穿透、方向与 50 / 100 / 200 点阈值。
 - “交互方案”：快速选择透明外部关闭、穿透不关闭、穿透并关闭、四向滑动、仅左滑和高阈值。
 - “底层点击次数”：确认同一次穿透点击确实传给了底层页面。
@@ -969,6 +1016,10 @@ xcodegen generate --spec Examples/BonePopoverDemo/project.yml
 | 内容顶部或侧边留白异常 | 自定义内容是否重复应用安全区到 layout margins；用局部 bounds 布局 |
 | 窄屏、折叠后按钮超出 | 检查业务固定宽度，使用 `baseView.bounds`、可用尺寸或 Auto Layout |
 | 字体、颜色或对齐改了又恢复 | 用 `configuration.contentStyle` 设置；直接改 label 会被后续样式刷新覆盖，整份替换 `configuration` 也会重置样式 |
+| 旧操作列表类型编译失败 | `BoneActionSheetView` / `PopoverAction` 已删除，按 [迁移表](Migration.md#action-sheet-migration) 改为 `BoneDrawerSheetView` 与 `addButton(text:...)` |
+| 加了单选或多选却没有确定按钮 | 显式设置 `showsConfirmButton = true` 并注册 `selectAction`；右侧按钮默认隐藏 |
+| 操作列表行字体变大后重叠 | 同时调整 `sheetConfig.fontSize` 和 `cellHeight`；行高固定，不使用 Alert 的 buttonFont 或自动行高 |
+| 开启玻璃遮罩却没有模糊 | 检查 `showsBackdrop = true`、`appearance.backdropGlass = true` 及系统降低透明度设置；不透明度为 0 仍可显示模糊 |
 | `swift test` 提示找不到 UIKit | macOS 目标无法运行 UIKit 测试，使用 iOS destination 的 `xcodebuild test` |
 
 ### 14.3 接入已有项目
@@ -977,6 +1028,8 @@ xcodegen generate --spec Examples/BonePopoverDemo/project.yml
 
 ### 14.4 已验证到什么程度
 
-已完成 iOS 15 部署目标 / Swift 6 严格类型检查、24 组手册与窗口示例编译、59 项核心回归，以及 iPad 的 22 项窗口托管测试。窗口测试覆盖创建快照、固定/自动层级、key 与输入恢复、穿透观察器清理、回调重入、实际对象释放、导航栈及真实双 Scene 隔离和销毁；独立 Window 内的窄宿主、横竖保留区域、键盘通知与材质切换也在 iPhone / iPad / Duo 通过定向验证。手机和平板实际点击、各次失败与复测，以及新版 Demo 安装启动结果统一见 [验证记录](Validation.md)。
+最近一次实现变更在 iPhone Duo / iOS 27.1 完成核心回归 **108/108**，在 iPhone 17 Pro / iOS 26 完成 Demo UI **14/14**；表头修正后的布局与玻璃遮罩定向复测 **5/5**。定向复测与前一轮存在重叠，不能相加为 19 个独立 UI 用例；排序变体只验证分区打开与行展示，未执行真实拖动手势。详细范围与真机安装状态见 [当前实现验证记录](Validation.md#unified-operation-list)。
 
-这些记录不表示所有系统版本和实体设备都完成验收。Duo 模拟器支持第二 Scene 激活，但系统拒绝主动销毁，相关阶段明确跳过，不能代替 iPad 的销毁隔离结果。iOS 15 没有实际运行验证；实体 Duo 全姿态、全部 iPadOS 窄分屏组合和完整辅助功能人工验收尚未完成；此前 iOS 27.1 连续输入后点击问题仍独立记录。原组件分布见 [项目清单](Inventory.md)。
+较早阶段的 iOS 15 部署目标 / Swift 6 严格类型检查、文档示例编译，以及 iPad 窗口托管测试按执行阶段保留在 [验证记录](Validation.md) 中；本次文档整理未重跑 SDK / UI 测试，也未重新编译整本文档中的示例。
+
+这些记录不表示所有系统版本和实体设备都完成验收。Duo 模拟器支持第二 Scene 激活，但系统拒绝主动销毁，相关阶段明确跳过，不能代替 iPad 的销毁隔离结果。iOS 15 没有实际运行验证；实体 Duo 全姿态、全部 iPadOS 窄分屏组合和完整辅助功能人工验收尚未完成。此前 iOS 27.1 连续输入后点击问题已纳入回归，最近记录未复现，不再列为当前阻塞；历史根因仍未获证明。原组件分布见 [项目清单](Inventory.md)。

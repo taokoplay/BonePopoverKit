@@ -53,12 +53,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 }
 
 final class DemoViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
-    private let scenes = ["居中确认框", "输入框与键盘", "底部操作列表", "顶部通知", "侧边面板", "长内容滚动", "注入竖向折叠", "注入横向折叠", "自定义 Alert 尺寸", "Alert 长内容上限", "Alert 竖排按钮", "Alert 窄空间", "自定义字体与间距", "即时调整内容样式", "独立 Window 与多 Scene", "Toast 顶部长条", "Toast 底部长条", "Toast 中间方块", "抽屉式选择", "玻璃遮罩", "抽屉：单组单选", "抽屉：加一组拖动", "抽屉：固定高度滚动"]
+    private let scenes = ["居中确认框", "输入框与键盘", "底部操作列表", "顶部通知", "侧边面板", "长内容滚动", "注入竖向折叠", "注入横向折叠", "自定义 Alert 尺寸", "Alert 长内容上限", "Alert 竖排按钮", "Alert 窄空间", "自定义字体与间距", "即时调整内容样式", "独立 Window 与多 Scene", "Toast 顶部长条", "Toast 底部长条", "Toast 中间方块", "操作列表：分组单选与多选", "玻璃遮罩", "操作列表：单组单选", "操作列表：增加拖动分区", "操作列表：固定高度滚动"]
     /// 每个场景一句话说明，直接告诉使用者这里该看什么。
     private let sceneDetails = [
         "标题、正文、确认/取消，可调对齐与按钮排列",
         "自动聚焦、键盘避让，回调带输入文本",
-        "阅读器默认样式，支持逐个 addButton",
+        "UITableView 分组动作，图标、危险操作与点击回调",
         "顶部滑入，遮罩 0.12，不自动消失",
         "贴 trailing，高度填满可用区",
         "内容超出可用高度时内部滚动",
@@ -74,7 +74,7 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         "顶部长条，2 秒自动关，允许穿透",
         "底部长条，可点底层页面",
         "中间方块，160–280 点随内容增大",
-        "阅读器式抽屉：分组列表、单选、带抓手",
+        "同一操作列表的单选、多选与统一提交",
         "玻璃模糊遮罩：透明度与虚化各自可调",
         "只有一个单选分区，右上“确定”提交",
         "单选 + 拖动排序两个分区，拖完再提交",
@@ -92,10 +92,10 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
     ]
     /// 场景分组；scene-N 编号保持不变，只调整展示顺序。
     private let groups: [(title: String, indices: [Int])] = [
-        ("常用弹窗", [0, 1, 2, 18, 3, 4]),
+        ("常用弹窗", [0, 1, 2, 3, 4]),
         ("布局与保留区域", [5, 6, 7, 8, 9, 10, 11]),
         ("内容样式", [12, 13, 19]),
-        ("抽屉变体", [20, 21, 22]),
+        ("底部操作列表", [18, 20, 21, 22]),
         ("独立窗口", [14]),
         ("Toast", [15, 16, 17])
     ]
@@ -392,17 +392,19 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
                 self?.record("项目名称：\(value)")
             }
         case 2:
-            // 增量写法：先建面板，再逐个添加动作（按钮落在取消之上）。
-            let sheet = BoneActionSheetView(title: "项目操作", message: "可在弹窗显示期间切换外观。")
-            sheet.addButton("切换风格", image: UIImage(systemName: "paintpalette"), dismissesPopover: false) { [weak self] in
-                guard let self else { return }
+            let sheet = BoneDrawerSheetView(title: "项目操作", message: "可在弹窗显示期间切换外观。")
+            sheet.addButton(text: "切换风格", icon: UIImage(systemName: "paintpalette"),
+                            dismissesPopover: false, accessibilityIdentifier: "operation-style") { [weak self] in
+                guard let self, let current = self.currentPopover else { return }
                 self.selectedStyle = (self.selectedStyle + 1) % self.styles.count
-                self.currentPopover?.configuration.appearance = self.appearance
+                self.applyAppearance(to: current)
             }
-            sheet.addButton("归档项目", image: UIImage(systemName: "archivebox")) { [weak self] in
+            sheet.addButton(text: "归档项目", icon: UIImage(systemName: "archivebox"),
+                            accessibilityIdentifier: "operation-archive") { [weak self] in
                 self?.record("已归档")
             }
-            sheet.addButton("删除项目", image: UIImage(systemName: "trash"), role: .destructive) { [weak self] in
+            sheet.addButton(text: "删除项目", icon: UIImage(systemName: "trash"), style: .destructive,
+                            accessibilityIdentifier: "operation-delete") { [weak self] in
                 self?.record("演示：已删除")
             }
             popover = sheet
@@ -450,13 +452,12 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
             alert.configuration.contentStyle = style
             popover = alert
         case 13:
-            let sheet = BoneActionSheetView(title: "即时调整内容样式", message: "点击下方按钮，切换默认样式与大字号、宽间距。", actions: [
-                PopoverAction("切换字体与间距", image: UIImage(systemName: "textformat.size"), dismissesPopover: false) { [weak self] in
-                    self?.toggleContentStyle()
-                }
-            ])
-            sheet.loadViewIfNeeded()
-            sheet.actionButtons.first?.accessibilityIdentifier = "toggle-content-style"
+            let sheet = BoneDrawerSheetView(title: "即时调整内容样式",
+                                            message: "点击下方操作，切换标题、说明、行字体与列表间距。")
+            sheet.addButton(text: "切换字体与间距", icon: UIImage(systemName: "textformat.size"),
+                            dismissesPopover: false, accessibilityIdentifier: "toggle-content-style") { [weak self] in
+                self?.toggleContentStyle()
+            }
             popover = sheet
         case 15, 16, 17:
             let style: BoneToastView.Style = switch index {
@@ -523,29 +524,23 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
             }
             popover = scrolling
         case 19:
-            let backdropSheet = BoneActionSheetView(
-                title: "玻璃遮罩",
-                message: "背后内容被虚化；不透明度单独控制压暗程度，两者可以自由组合。",
-                actions: [
-                    PopoverAction("切换玻璃（开 / 关）", image: UIImage(systemName: "aqi.medium"),
-                                  dismissesPopover: false) { [weak self] in
-                        guard let self, let popover = self.currentPopover else { return }
-                        popover.configuration.appearance.backdropGlass.toggle()
-                        self.record(popover.configuration.appearance.backdropGlass ? "玻璃遮罩：开" : "玻璃遮罩：关")
-                    },
-                    PopoverAction("不透明度 0（纯模糊）", dismissesPopover: false) { [weak self] in
-                        self?.setBackdropOpacity(0)
-                    },
-                    PopoverAction("不透明度 0.12", dismissesPopover: false) { [weak self] in
-                        self?.setBackdropOpacity(0.12)
-                    },
-                    PopoverAction("不透明度 0.32", dismissesPopover: false) { [weak self] in
-                        self?.setBackdropOpacity(0.32)
-                    }
-                ])
-            backdropSheet.configuration.appearance.backdropGlass = true
-            popover = backdropSheet
-            return
+            let sheet = BoneDrawerSheetView(title: "玻璃遮罩",
+                                            message: "背后内容被虚化；不透明度单独控制压暗程度，两者可以自由组合。")
+            sheet.addButton(text: "切换玻璃（开 / 关）", icon: UIImage(systemName: "aqi.medium"),
+                            dismissesPopover: false) { [weak self] in
+                guard let self, let current = self.currentPopover else { return }
+                current.configuration.appearance.backdropGlass.toggle()
+                self.record(current.configuration.appearance.backdropGlass ? "玻璃遮罩：开" : "玻璃遮罩：关")
+            }
+            for opacity in [CGFloat(0), 0.12, 0.32] {
+                let text = opacity == 0 ? "不透明度 0（纯模糊）" : "不透明度 \(opacity)"
+                sheet.addButton(text: text, dismissesPopover: false) { [weak self] in
+                    self?.setBackdropOpacity(opacity)
+                }
+            }
+            sheet.configuration.showsBackdrop = true
+            sheet.configuration.appearance.backdropGlass = true
+            popover = sheet
         default:
             let title = scenes[index]
             let message = [5, 8, 9].contains(index) ? String(repeating: "内容会根据当前窗口宽度换行，超出可用高度时可以滚动。\n\n", count: 10)
@@ -571,7 +566,7 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         }
         // "自动"不覆盖外观，让各预设自带默认样式生效（如底部 sheet 的阅读器默认）。
         if selectedStyle != 0 {
-            popover.configuration.appearance = appearance
+            applyAppearance(to: popover)
         }
         if let alert = popover as? BoneAlertView {
             if let alignment = selectedTitleAlignment { alert.titleAlignment = alignment }
@@ -579,11 +574,10 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
             alert.messageLabel.accessibilityIdentifier = "popover-message"
             alert.cancelButton.accessibilityIdentifier = "popover-cancel"
             alert.confirmButton.accessibilityIdentifier = "popover-confirm"
-        } else if let sheet = popover as? BoneActionSheetView {
+        } else if let sheet = popover as? BoneDrawerSheetView {
             if let alignment = selectedTitleAlignment { sheet.titleAlignment = alignment }
             sheet.titleLabel.accessibilityIdentifier = "popover-title"
             sheet.messageLabel.accessibilityIdentifier = "popover-message"
-            sheet.cancelButton.accessibilityIdentifier = "popover-cancel"
         } else if let toast = popover as? BoneToastView {
             toast.messageLabel.accessibilityIdentifier = "toast-message"
             toast.imageView.accessibilityIdentifier = "toast-image"
@@ -605,14 +599,14 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         popover.onDidShow = { [weak popover] in
             popover?.view.accessibilityIdentifier = "popover-ready"
         }
-        // Present in the navigation controller so the overlay covers its bars as well.
+        // 传入导航容器时，SDK 在当前内容页内挂载，不向返回栈加入临时页面。
         popover.show(from: navigationController ?? self)
     }
 
     /// 场景 19 用：实时改遮罩不透明度，弹窗保持打开以便对比。
     private func setBackdropOpacity(_ value: CGFloat) {
         guard let popover = currentPopover else { return }
-        popover.configuration.showsBackdrop = value > 0
+        popover.configuration.showsBackdrop = true
         popover.configuration.appearance.backdropOpacity = value
         record(String(format: "遮罩不透明度：%.2f", Double(value)))
     }
@@ -622,6 +616,7 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         switch backdropControl.selectedSegmentIndex {
         case 1:
             popover.configuration.showsBackdrop = true
+            popover.configuration.appearance.backdropGlass = false
         case 2:
             popover.configuration.showsBackdrop = false
         case 3:
@@ -630,28 +625,39 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         default:
             break
         }
-        if backdropControl.selectedSegmentIndex != 3 {
-            popover.configuration.appearance.backdropGlass = false
-        }
         if penetrationControl.selectedSegmentIndex != 0 {
             popover.configuration.allowsEventPenetration = penetrationControl.selectedSegmentIndex == 1
         }
     }
 
     private func toggleContentStyle() {
-        guard let popover = currentPopover else { return }
-        var style = PopoverContentStyle()
-        if let alignment = selectedTitleAlignment { style.titleAlignment = alignment }
-        if popover.configuration.contentStyle.titleFont.pointSize == 18 {
-            style.titleFont = .boldSystemFont(ofSize: 24)
-            style.messageFont = .systemFont(ofSize: 19)
-            style.buttonFont = .systemFont(ofSize: 20, weight: .medium)
-            style.contentInsets = NSDirectionalEdgeInsets(top: 32, leading: 32, bottom: 32, trailing: 32)
-            style.titleToContentSpacing = 20
-            style.contentToButtonsSpacing = 28
-            style.buttonSpacing = 20
+        guard let sheet = currentPopover as? BoneDrawerSheetView else { return }
+        let expanded = sheet.sheetConfig.cellHeight == 55
+        var style = sheet.configuration.contentStyle
+        style.titleFont = .systemFont(ofSize: expanded ? 24 : 17, weight: .semibold)
+        style.messageFont = .systemFont(ofSize: expanded ? 19 : 14)
+        style.titleToContentSpacing = expanded ? 20 : 14
+        style.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 0,
+                                                      bottom: expanded ? 32 : 20, trailing: 0)
+        sheet.configuration.contentStyle = style
+        var list = sheet.sheetConfig
+        list.fontSize = .systemFont(ofSize: expanded ? 20 : 16, weight: .bold)
+        list.cellHeight = expanded ? 72 : 55
+        list.listTopSpacing = expanded ? 24 : 16
+        sheet.sheetConfig = list
+    }
+
+    private func applyAppearance(to popover: BonePopoverView) {
+        var value = appearance
+        if popover is BoneDrawerSheetView {
+            if selectedStyle == 0 {
+                value = PopoverConfiguration.bottomSheet.appearance
+                value.backgroundColor = .systemGroupedBackground
+            }
+            value.showsGrabber = true
+            value.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         }
-        popover.configuration.contentStyle = style
+        popover.configuration.appearance = value
     }
 
     private func record(_ result: String) {

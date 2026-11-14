@@ -13,7 +13,7 @@ final class PopoverReaderParityTests: XCTestCase {
         window.makeKeyAndVisible()
         presenter.view.frame = window.bounds
         XCTAssertTrue(popover.show(from: presenter, animated: false))
-        let host = try XCTUnwrap(presenter.view.subviews.compactMap { $0 as? PopoverHostView }.first)
+        let host = try XCTUnwrap(popover.presentationHost)
         host.layoutIfNeeded()
         return (window, presenter, host)
     }
@@ -54,8 +54,9 @@ final class PopoverReaderParityTests: XCTestCase {
 
     /// 关闭按钮图标与命中区可配置；不设置时仍是 40 点与内置向下箭头。
     @MainActor
-    func testActionSheetCloseButtonImageAndSizeAreConfigurable() throws {
-        let sheet = BoneActionSheetView(title: "项目操作", actions: [PopoverAction("分享")])
+    func testOperationListCloseButtonImageAndSizeAreConfigurable() throws {
+        let sheet = BoneDrawerSheetView(title: "项目操作")
+        sheet.addButton(text: "分享")
         let (window, _, _) = try present(sheet)
         defer { sheet.dismissPopover(animated: false); window.isHidden = true }
         XCTAssertEqual(sheet.closeButton.frame.width, 40, accuracy: 1)
@@ -103,23 +104,38 @@ final class PopoverReaderParityTests: XCTestCase {
         XCTAssertEqual(alert.overrideUserInterfaceStyle, .unspecified)
     }
 
-    /// 操作列表：取消文案与关闭标签由自己的属性控制，默认不变。
+    /// 操作列表用头部按钮关闭或确认，不向表格追加取消行；文案可在显示期间修改。
     @MainActor
-    func testActionSheetCancelTitleAndCloseLabel() throws {
-        let sheet = BoneActionSheetView(title: "项目操作", actions: [PopoverAction("分享")], cancelTitle: "返回")
-        let (window, _, _) = try present(sheet)
+    func testOperationListCloseLabelAndConfirmTitleDoNotAddRows() throws {
+        let sheet = BoneDrawerSheetView(title: "项目操作")
+        sheet.addButton(text: "分享")
+        let (window, _, host) = try present(sheet)
         defer { sheet.dismissPopover(animated: false); window.isHidden = true }
-        XCTAssertEqual(sheet.cancelButton.configuration?.title, "返回", "初始化参数仍是默认来源")
         XCTAssertEqual(sheet.closeButton.accessibilityLabel, "关闭")
-        XCTAssertNil(sheet.cancelTitle)
+        XCTAssertNil(sheet.confirmTitle)
+        XCTAssertFalse(sheet.showsConfirmButton)
+        XCTAssertTrue(sheet.trailingButton.isHidden)
+        XCTAssertEqual(sheet.tableView.numberOfSections, 1)
+        XCTAssertEqual(sheet.tableView.numberOfRows(inSection: 0), 1)
 
-        sheet.cancelTitle = "Dismiss"
+        sheet.confirmTitle = "完成"
         sheet.closeAccessibilityLabel = "Close"
-        XCTAssertEqual(sheet.cancelButton.configuration?.title, "Dismiss")
+        sheet.showsConfirmButton = true
+        host.layoutIfNeeded()
+        XCTAssertEqual(sheet.trailingButton.configuration?.title ?? sheet.trailingButton.title(for: .normal), "完成")
         XCTAssertEqual(sheet.closeButton.accessibilityLabel, "Close")
+        XCTAssertFalse(sheet.trailingButton.isHidden)
+        XCTAssertEqual(sheet.tableView.numberOfRows(inSection: 0), 1,
+                       "头部确认按钮不应生成额外表格行")
 
-        sheet.cancelTitle = nil
-        XCTAssertEqual(sheet.cancelButton.configuration?.title, "返回", "取消覆盖后回到初始化文案")
+        sheet.confirmTitle = ""
+        sheet.closeAccessibilityLabel = ""
+        XCTAssertEqual(sheet.trailingButton.configuration?.title ?? sheet.trailingButton.title(for: .normal), "确定")
+        XCTAssertEqual(sheet.closeButton.accessibilityLabel, "关闭")
+        sheet.confirmTitle = nil
+        sheet.closeAccessibilityLabel = nil
+        XCTAssertEqual(sheet.trailingButton.configuration?.title ?? sheet.trailingButton.title(for: .normal), "确定")
+        XCTAssertEqual(sheet.closeButton.accessibilityLabel, "关闭")
     }
 
     /// Toast 类型描述与遮罩标签：各自属性可覆盖，默认仍是内置中文/英文 key。

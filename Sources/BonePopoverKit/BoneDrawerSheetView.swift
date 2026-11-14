@@ -1,6 +1,6 @@
 import UIKit
 
-/// 抽屉式底部弹层：标题 + 抓手 + `UITableView` 分组列表。
+/// 默认底部操作列表：标题 + 抓手 + `UITableView` 分组列表，统一承载普通动作与选择/排序。
 ///
 /// 用法沿用阅读器旧实现：先 `init(title:)`，再用 `addButton(text:value:style:inSection:)`
 /// 逐个添加行，分区的交互方式由 `SectionType` 决定：
@@ -35,6 +35,7 @@ open class BoneDrawerSheetView: BonePopoverView {
     public enum ButtonStyle {
         case `default`
         case highlight
+        case destructive
     }
 
     /// 抽屉外观参数，显示前后修改都会重新布局。
@@ -114,6 +115,22 @@ open class BoneDrawerSheetView: BonePopoverView {
 
     /// 标题控件；字体、颜色与对齐由 `configuration.contentStyle` 刷新。
     public let titleLabel = UILabel()
+    /// 可选说明文字，字体、颜色和对齐由 `configuration.contentStyle` 管理。
+    public let messageLabel = UILabel()
+    /// 左侧关闭按钮，可定制图标、尺寸和辅助功能属性。
+    public var closeButton: UIButton { cancelButton }
+    public var titleAlignment: NSTextAlignment {
+        get { configuration.contentStyle.titleAlignment }
+        set { configuration.contentStyle.titleAlignment = newValue }
+    }
+    public var showsCloseButton = true {
+        didSet {
+            guard isViewLoaded else { return }
+            cancelButton.isHidden = !showsCloseButton
+            applyHeaderSpacing()
+            invalidatePopoverLayout()
+        }
+    }
     /// 标题行右侧按钮；默认显示“确定”并提交选中项，宿主可改文案、图标或自行接管点击。
     public var trailingButton: UIButton { confirmButton }
     /// 是否显示右侧按钮，默认 `false`（不设置就不出现）。
@@ -132,6 +149,8 @@ open class BoneDrawerSheetView: BonePopoverView {
         /// 行首图标；nil 时不占位，行布局与旧版本一致。
         var icon: UIImage?
         var style: ButtonStyle
+        var dismissesPopover: Bool
+        var accessibilityIdentifier: String?
         var callback: (() -> Void)?
     }
 
@@ -145,8 +164,9 @@ open class BoneDrawerSheetView: BonePopoverView {
     private var selectCallback: (([(text: String, value: String)]) -> Void)?
 
     private let contentStack = makePopoverStack()
-    /// 仅用于复用共享排版函数；抽屉没有正文行。
-    private let typographyPlaceholder = UILabel()
+    private let messageRow = UIView()
+    private var messageLeadingConstraint: NSLayoutConstraint?
+    private var messageTrailingConstraint: NSLayoutConstraint?
     private let confirmButton = UIButton(type: .system)
     private let cancelButton = UIButton(type: .system)
 
@@ -156,19 +176,26 @@ open class BoneDrawerSheetView: BonePopoverView {
     private weak var headerRowView: UIView?
     private var headerTopConstraint: NSLayoutConstraint?
     private var headerBottomConstraint: NSLayoutConstraint?
+    private var headerMinimumHeightConstraint: NSLayoutConstraint?
+    private var titleLeadingConstraint: NSLayoutConstraint?
+    private var titleTrailingConstraint: NSLayoutConstraint?
+    private var closeLeadingConstraint: NSLayoutConstraint?
+    private var confirmTrailingConstraint: NSLayoutConstraint?
     private var tableHeightConstraint: NSLayoutConstraint?
     private var cancelSizeConstraints: [NSLayoutConstraint] = []
     private var confirmSizeConstraints: [NSLayoutConstraint] = []
 
     /// 创建抽屉；分区与行通过 `addButton(text:value:style:inSection:)` 添加。
-    public init(title: String) {
+    public init(title: String, message: String? = nil) {
         super.init(nibName: nil, bundle: nil)
         titleLabel.text = title
+        messageLabel.text = message
         configuration = .bottomSheet
         // 面板用分组灰底、行用白底：与系统「设置」式分组列表一致。
         configuration.appearance.backgroundColor = .systemGroupedBackground
         configuration.appearance.showsGrabber = true
         configuration.contentStyle.titleFont = .systemFont(ofSize: 17, weight: .semibold)
+        configuration.contentStyle.messageFont = .systemFont(ofSize: 14)
         configuration.contentStyle.titleAlignment = .center
         configuration.contentStyle.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 0,
                                                                           bottom: 20, trailing: 0)
@@ -181,19 +208,18 @@ open class BoneDrawerSheetView: BonePopoverView {
         selectCallback = callback
     }
 
-    /// 添加一行。
-    /// - Parameters:
-    ///   - text: 行文字。
-    ///   - value: 业务值，随提交结果回传。
-    ///   - icon: 行首图标；传了才画，尺寸与底板参数在 `sheetConfig` 里。
-    ///   - style: `.default` 或 `.highlight`。
-    ///   - sectionType: 所属分区；标题相同即视为同一分区，不存在时自动创建。
-    ///   - callback: `.normal` 分区点击后的业务回调；选择型分区忽略。
+    /// 添加动作或选择项；未指定分区时是点击后关闭的普通动作。
+    /// `dismissesPopover = false` 使普通动作回调后保持打开；选择型分区继续由“确定”提交。
+    /// `accessibilityIdentifier` 未设置时使用 `drawer-row-分区-行`。
     public func addButton(text: String, value: String = "", icon: UIImage? = nil,
                           style: ButtonStyle = .default,
                           inSection sectionType: SectionType = .normal(""),
+                          dismissesPopover: Bool = true,
+                          accessibilityIdentifier: String? = nil,
                           callback: (() -> Void)? = nil) {
-        let model = ButtonModel(text: text, value: value, icon: icon, style: style, callback: callback)
+        let model = ButtonModel(text: text, value: value, icon: icon, style: style,
+                                dismissesPopover: dismissesPopover,
+                                accessibilityIdentifier: accessibilityIdentifier, callback: callback)
         // 与阅读器旧实现一致：标题相同即同一个分区，初值 Bool 只影响新行的默认选中。
         if let index = sections.firstIndex(where: { $0.type.title == sectionType.title }) {
             sections[index].buttons.append(model)
@@ -226,6 +252,8 @@ open class BoneDrawerSheetView: BonePopoverView {
         titleLabel.accessibilityTraits.insert(.header)
         contentStack.spacing = 0
         contentStack.addArrangedSubview(makeHeaderRow())
+        configureMessageRow()
+        contentStack.addArrangedSubview(messageRow)
         contentStack.addArrangedSubview(tableView)
         contentStack.setCustomSpacing(0, after: tableView)
 
@@ -240,19 +268,20 @@ open class BoneDrawerSheetView: BonePopoverView {
         }, for: .touchUpInside)
         cancelButton.accessibilityIdentifier = "drawer-close"
         cancelButton.accessibilityLabel = resolvedCloseLabel
+        cancelButton.isHidden = !showsCloseButton
         cancelButton.addAction(UIAction { [weak self] _ in self?.hidden() }, for: .touchUpInside)
 
         tableHeightConstraint = tableView.heightAnchor.constraint(equalToConstant: 0)
         tableHeightConstraint?.isActive = true
         setContentView(contentStack)
-        rebuildRows()
+        applyContentStyle()
     }
 
     open override func applyContentStyle() {
         guard isViewLoaded else { return }
         let style = configuration.contentStyle
         // 标题排版复用共享逻辑；两个圆形按钮不参与，避免按钮字体与内边距被通用样式覆盖。
-        applyPopoverTypography(style, title: titleLabel, message: typographyPlaceholder,
+        applyPopoverTypography(style, title: titleLabel, message: messageLabel,
                                buttons: [], traits: traitCollection)
         contentStack.directionalLayoutMargins = style.resolvedContentInsets
         applyPopoverCloseButtonStyle(cancelButton, style: style)
@@ -292,7 +321,7 @@ open class BoneDrawerSheetView: BonePopoverView {
         guard isViewLoaded else { return }
         tableView.rowHeight = sheetConfig.cellHeight
         tableView.dragInteractionEnabled = hasDragOperation
-        tableView.reloadData()
+        // 统一在 refreshSelection 中刷新可复用行。
         applyHeaderSpacing()
         updateTableHeight()
         applyTrailingButtonVisibility()
@@ -300,12 +329,51 @@ open class BoneDrawerSheetView: BonePopoverView {
         invalidatePopoverLayout()
     }
 
-    /// 标题上下留白与「标题到列表」的间距跟随 `sheetConfig`。
+    private func configureMessageRow() {
+        configurePopoverLabel(messageLabel)
+        messageLabel.translatesAutoresizingMaskIntoConstraints = false
+        messageRow.addSubview(messageLabel)
+        messageLeadingConstraint = messageLabel.leadingAnchor.constraint(equalTo: messageRow.leadingAnchor,
+                                                                          constant: sheetConfig.headerInset)
+        messageTrailingConstraint = messageLabel.trailingAnchor.constraint(equalTo: messageRow.trailingAnchor,
+                                                                            constant: -sheetConfig.headerInset)
+        NSLayoutConstraint.activate([
+            messageLabel.topAnchor.constraint(equalTo: messageRow.topAnchor),
+            messageLabel.bottomAnchor.constraint(equalTo: messageRow.bottomAnchor)
+        ] + [messageLeadingConstraint, messageTrailingConstraint].compactMap { $0 })
+    }
+
+    /// 表头、可选说明与列表统一使用当前间距设置。
     private func applyHeaderSpacing() {
+        let inset = sheetConfig.headerInset
+        let size = configuration.contentStyle.resolvedCloseButtonSize
+        let hasTrailing = showsConfirmButton || onTrailingButtonTap != nil
+        var leadingReserve = showsCloseButton ? size + 8 : 0
+        var trailingReserve = hasTrailing ? max(size + 8, confirmButton.intrinsicContentSize.width) + 8 : 0
+        if configuration.contentStyle.titleAlignment == .center {
+            leadingReserve = max(leadingReserve, trailingReserve)
+            trailingReserve = leadingReserve
+            // 内容区可使用不对称边距，居中标题仍围绕整个面板保持对称。
+            let insets = configuration.contentStyle.resolvedContentInsets
+            leadingReserve += max(0, insets.trailing - insets.leading)
+            trailingReserve += max(0, insets.leading - insets.trailing)
+        }
         headerTopConstraint?.constant = sheetConfig.headerTopSpacing
         headerBottomConstraint?.constant = -sheetConfig.headerTopSpacing
+        titleLeadingConstraint?.constant = inset + leadingReserve
+        titleTrailingConstraint?.constant = -(inset + trailingReserve)
+        closeLeadingConstraint?.constant = inset
+        confirmTrailingConstraint?.constant = -inset
+        messageLeadingConstraint?.constant = inset
+        messageTrailingConstraint?.constant = -inset
+        let hasMessage = !(messageLabel.text?.isEmpty ?? true)
+        messageRow.isHidden = !hasMessage
         if let header = headerRowView {
-            contentStack.setCustomSpacing(sheetConfig.listTopSpacing, after: header)
+            contentStack.setCustomSpacing(hasMessage ? configuration.contentStyle.resolvedTitleSpacing
+                                                    : sheetConfig.listTopSpacing, after: header)
+        }
+        if contentStack.arrangedSubviews.contains(messageRow) {
+            contentStack.setCustomSpacing(sheetConfig.listTopSpacing, after: messageRow)
         }
     }
 
@@ -335,7 +403,7 @@ open class BoneDrawerSheetView: BonePopoverView {
         header.addSubview(titleLabel)
 
         cancelButton.translatesAutoresizingMaskIntoConstraints = false
-        // 与操作列表共用同一套向下箭头外观（iOS 26+ 液态玻璃圆圈）。
+        // 统一的向下箭头外观（iOS 26+ 液态玻璃圆圈）。
         applyPopoverCloseButtonStyle(cancelButton, style: configuration.contentStyle)
         cancelButton.accessibilityIdentifier = "drawer-close"
         cancelButton.accessibilityLabel = resolvedCloseLabel
@@ -358,34 +426,35 @@ open class BoneDrawerSheetView: BonePopoverView {
             confirmButton.widthAnchor.constraint(greaterThanOrEqualToConstant: size + 8),
             confirmButton.heightAnchor.constraint(equalToConstant: size)
         ]
-        let top = titleLabel.topAnchor.constraint(equalTo: header.topAnchor,
+        let top = titleLabel.topAnchor.constraint(greaterThanOrEqualTo: header.topAnchor,
                                                   constant: sheetConfig.headerTopSpacing)
-        let bottom = titleLabel.bottomAnchor.constraint(equalTo: header.bottomAnchor,
+        let bottom = titleLabel.bottomAnchor.constraint(lessThanOrEqualTo: header.bottomAnchor,
                                                         constant: -sheetConfig.headerTopSpacing)
+        let minimumHeight = header.heightAnchor.constraint(greaterThanOrEqualToConstant: size)
+        headerMinimumHeightConstraint = minimumHeight
         headerTopConstraint = top
         headerBottomConstraint = bottom
         headerRowView = header
-        NSLayoutConstraint.activate([top, bottom,
-            titleLabel.leadingAnchor.constraint(equalTo: header.leadingAnchor,
-                                                constant: sheetConfig.headerInset + size + 8),
-            titleLabel.trailingAnchor.constraint(equalTo: header.trailingAnchor,
-                                                 constant: -(sheetConfig.headerInset + size + 8)),
-            cancelButton.topAnchor.constraint(equalTo: header.topAnchor),
-            cancelButton.leadingAnchor.constraint(equalTo: header.leadingAnchor,
-                                                  constant: sheetConfig.headerInset),
-            confirmButton.trailingAnchor.constraint(equalTo: header.trailingAnchor,
-                                                    constant: -sheetConfig.headerInset),
+        titleLeadingConstraint = titleLabel.leadingAnchor.constraint(equalTo: header.leadingAnchor)
+        titleTrailingConstraint = titleLabel.trailingAnchor.constraint(equalTo: header.trailingAnchor)
+        closeLeadingConstraint = cancelButton.leadingAnchor.constraint(equalTo: header.leadingAnchor)
+        confirmTrailingConstraint = confirmButton.trailingAnchor.constraint(equalTo: header.trailingAnchor)
+        NSLayoutConstraint.activate([
+            top, bottom, minimumHeight,
+            titleLabel.centerYAnchor.constraint(equalTo: header.centerYAnchor),
+            cancelButton.centerYAnchor.constraint(equalTo: header.centerYAnchor),
             confirmButton.centerYAnchor.constraint(equalTo: cancelButton.centerYAnchor)
-        ] + cancelSizeConstraints + confirmSizeConstraints)
+        ] + [titleLeadingConstraint, titleTrailingConstraint, closeLeadingConstraint,
+             confirmTrailingConstraint].compactMap { $0 } + cancelSizeConstraints + confirmSizeConstraints)
         return header
     }
 
     /// 关闭按钮与右侧按钮保持同一尺寸与圆角；`contentStyle.closeButtonSize` 改变后同步。
     private func updateHeaderButtonSizes(_ size: CGFloat) {
-        for constraint in cancelSizeConstraints + confirmSizeConstraints
-        where constraint.constant != size {
-            constraint.constant = size
-        }
+        for constraint in cancelSizeConstraints { constraint.constant = size }
+        confirmSizeConstraints.first?.constant = size + 8
+        confirmSizeConstraints.last?.constant = size
+        headerMinimumHeightConstraint?.constant = size
         cancelButton.layer.cornerRadius = size / 2
         confirmButton.layer.cornerRadius = size / 2
     }
@@ -394,6 +463,8 @@ open class BoneDrawerSheetView: BonePopoverView {
     private func applyTrailingButtonVisibility() {
         guard isViewLoaded else { return }
         confirmButton.isHidden = !(showsConfirmButton || onTrailingButtonTap != nil)
+        applyHeaderSpacing()
+        invalidatePopoverLayout()
     }
 
     /// 勾选状态跟着 `selectIndexPath` 走；`.drag` 分区按顺序全部勾上。
@@ -436,6 +507,7 @@ open class BoneDrawerSheetView: BonePopoverView {
                                       title: resolvedConfirmTitle)
         applyPopoverCircleButtonStyle(cancelButton, style: configuration.contentStyle)
         cancelButton.accessibilityLabel = resolvedCloseLabel
+        applyHeaderSpacing()
         invalidatePopoverLayout()
     }
 
@@ -446,11 +518,11 @@ open class BoneDrawerSheetView: BonePopoverView {
         return false
     }
 
-    private func accessorySymbol(for type: SectionType) -> String {
+    private func accessorySymbol(for type: SectionType) -> String? {
         switch type {
-        case .drag(_): return "line.3.horizontal"
-        case .singleSelect(_, _), .multipleSelect(_, _): return "checkmark"
-        case .normal(_): return "checkmark"
+        case .drag: return "line.3.horizontal"
+        case .singleSelect, .multipleSelect: return "checkmark"
+        case .normal: return nil
         }
     }
 
@@ -469,9 +541,14 @@ open class BoneDrawerSheetView: BonePopoverView {
         let section = sections[indexPath.section]
         let model = section.buttons[indexPath.row]
         let type = section.type
+        let textColor: UIColor = switch model.style {
+        case .default: .label
+        case .highlight: sheetConfig.highlightColor
+        case .destructive: .systemRed
+        }
         return BoneDrawerSheetCell.Configuration(
             text: model.text,
-            textColor: model.style == .highlight ? sheetConfig.highlightColor : .label,
+            textColor: textColor,
             font: sheetConfig.fontSize,
             textAlignment: sheetConfig.textAlignment,
             cellBackgroundColor: sheetConfig.cellBackgroundColor,
@@ -486,7 +563,7 @@ open class BoneDrawerSheetView: BonePopoverView {
             iconSize: sheetConfig.cellIconSize,
             iconCornerRadius: sheetConfig.cellIconCornerRadius,
             iconSpacing: sheetConfig.cellIconSpacing,
-            accessoryImage: UIImage(systemName: accessorySymbol(for: type)),
+            accessoryImage: accessorySymbol(for: type).flatMap { UIImage(systemName: $0) },
             accessoryTint: sheetConfig.highlightColor
         )
     }
@@ -501,13 +578,14 @@ open class BoneDrawerSheetView: BonePopoverView {
     }
 
     private func handleTap(indexPath: IndexPath) {
-        guard indexPath.section < sections.count,
-              indexPath.row < sections[indexPath.section].buttons.count else { return }
+        guard presentationState != .dismissing, sections.indices.contains(indexPath.section),
+              sections[indexPath.section].buttons.indices.contains(indexPath.row) else { return }
         let section = sections[indexPath.section]
         let model = section.buttons[indexPath.row]
         switch section.type {
         case .normal(_):
-            hidden { model.callback?() }
+            if model.dismissesPopover { hidden { model.callback?() } }
+            else { model.callback?() }
         case .singleSelect(_, _):
             selectIndexPath = selectIndexPath.filter { $0.section != indexPath.section }
             selectIndexPath.insert(indexPath)
@@ -573,10 +651,12 @@ extension BoneDrawerSheetView: UITableViewDataSource, UITableViewDelegate {
                            iconSpacing: sheetConfig.cellIconSpacing)
         row.apply(cellConfiguration(at: indexPath))
         row.roundStyle = roundStyle(for: indexPath)
-        row.rowIdentifier = "drawer-row-\(indexPath.section)-\(indexPath.row)"
+        row.rowIdentifier = sections[indexPath.section].buttons[indexPath.row].accessibilityIdentifier
+            ?? "drawer-row-\(indexPath.section)-\(indexPath.row)"
         row.accessibilityLabel = sections[indexPath.section].buttons[indexPath.row].text
         row.accessibilityTraits = .button
         row.isSelected = isSelectedRow(at: indexPath)
+        row.accessibilityValue = isSelectedRow(at: indexPath) ? "已选中" : nil
         return row
     }
 

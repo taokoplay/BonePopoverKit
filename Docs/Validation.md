@@ -1,5 +1,21 @@
 # 验证记录
 
+本记录按实现阶段追加；旧类型名称、源码行号及早期测试数量保留为历史证据。当前底部操作列表的详细结果见 [统一默认底部操作列表](#unified-operation-list)，`v0.1.0` 的功能变化与升级影响见 [更新日志](../CHANGELOG.md#v0.1.0)。
+
+## 当前实现验证摘要
+
+以下为最近一次代码变更的执行结果，本次文档整理未重跑 SDK / UI 测试。
+
+| 检查 | 最近记录 |
+| --- | --- |
+| iPhone Duo / iOS 27.1 核心回归 | **108/108 通过，0 失败** |
+| iPhone 17 Pro / iOS 26 Demo UI 回归 | **14/14 通过，0 失败** |
+| 表头布局与玻璃遮罩定向复测 | **5/5 通过**；与上一轮存在重叠，不合计为 19 个独立用例 |
+| 真机 Demo 构建 | `BUILD SUCCEEDED` |
+| 最近一次真机安装 | 未完成；设备 `unavailable`，刷新后两次安装返回 `CoreDeviceError 4016` |
+
+排序变体的本轮 UI 检查覆盖分区打开与行展示，未执行真实拖动手势。以下各节保留不同实现阶段的测试范围、失败和复测；早期通过数量不代表当前完整套件数量。
+
 ## 环境
 
 - Xcode 27.1（27A9275），Apple Swift 6.4。
@@ -8,7 +24,7 @@
 - 示例 UI 与窗口托管测试 runner 最低 iOS 17.0，与本机 XCTest 库最低版本一致，不改变 SDK/App 的 iOS 15 支持。
 - 分阶段使用 iPhone Duo / iOS 27.1、iPhone 13 Pro / iOS 26、iPad Pro 11-inch M4 / iOS 26，以及早期 iPhone 16 / iOS 18.6 模拟器。
 
-## 已执行且通过
+## 初始实现阶段：已执行且通过
 
 | 检查 | 结果 |
 | --- | --- |
@@ -436,3 +452,43 @@ iOS 15 仍仅完成编译支持验证；实体 Duo 全姿态、实际 iPadOS 全
   - 22 固定高度滚动：14 行、`maximumListHeight = 240`，面板高度固定，行超出时列表内部滚动。
 - 新增 UI 用例 `testDrawerVariantsOpenAndScroll`：用 `--demo-scene` 直接打开三个场景（避免在分组列表里滚动定位的坐标误差），断言各自的行数/分区、「第 14 行初始不可点」以及滚动后可点到；三个截图作为附件保留。
 - 测试：Demo UI 用例 **6/6 通过**（`variants-ui7.log`，含新增用例）；核心 99/99 不受影响。
+
+## 抽屉底部安全区白边修复
+
+- 根因：宿主按安全区计算面板边界，面板的材质背景也在安全区上沿结束，底部露出宿主页面底色。
+- `PopoverHostView` 对底部外边距为 0、且贴到安全区下沿的面板延伸背景至容器底边；`PopoverSurfaceView.bottomContentInset` 保留原内容区域，标题、列表位置和滚动高度不随背景扩展而改变。
+- 正值底部外边距继续保留留白；键盘、折叠保留区阻断铺底时不延伸背景。材质层及自定义背景一起铺满，不增加独立补色视图。
+- 新增 `PopoverBottomSheetBackgroundTests`：三个抽屉版本在浅色/深色下检查背景铺底、内容避让、底部左中右实际像素，并检查浮动边距与保留区的切换。
+- 验证：iPhone Duo / iOS 27.1 核心 **101/101 通过**（`bottom-background-core-duo.log`）；iPhone 17 Pro / iOS 26 抽屉选择、三变体与滚动 UI **2/2 通过**（`bottom-background-ui.log`）。三个 UI 截图底部左中右与面板侧边均为 `(242, 242, 247)` / `#F2F2F7`。
+- 环境差异：iPhone 17 Pro 首次完整核心回归有一条既有居中 Toast 间距断言失败（12.67 与 12.0、容差 0.5），未改动该布局或放宽断言；项目原用 Duo 模拟器完整回归通过。
+- 手机包构建成功（`bottom-background-device-build.log`）；iPhone 13 Pro 当前连接状态为 `unavailable`，安装返回 `CoreDeviceError 4016`（`bottom-background-install.log`），本次修复尚未安装到真机。
+
+## 吐司显示后右滑黑屏修复
+
+- 根因：`show(from: navigationController)` 把弹层直接作为导航容器的子控制器添加，UIKit 因此把 `BoneToastView` 计入 `viewControllers`。实测首页返回栈由 1 页变成 `[UIViewController, BoneToastView]`，详情页则由 2 页变成 3 页；吐司默认允许穿透，右滑会启动错误的返回转场。
+- 修复：页面展示入口对导航/标签容器选择其当前内容页，控制器与宿主视图在同一页面内挂载，保留 UIKit 合法层级；不修改容器管理的页面列表。详情页真正返回时，宿主移出窗口会沿用既有清理流程关闭吐司。空容器返回 false，不占用展示状态。
+- 模态弹层仍暂停当前导航的返回手势并在关闭后恢复；需要覆盖导航栏、标签栏和整个窗口时使用已有的 `show(over:)` / `show(in:)`，文档已同步页面模式的覆盖范围。
+- 新增 4 项核心检查：三种吐司不增加导航页面；详情返回正常且吐司清理；空导航容器拒绝展示；标签容器不增加标签/导航页面且模态手势保护正常。新增 UI 检查实际从左边缘向右拖动，覆盖顶部、底部和居中吐司；修复前首页不可操作的失败已复现，修复后通过。
+- 吐司 UI 的列表定位改为先把整个 cell 滚入可视区，避免部分露出的行默认点击点落到首页底部结果栏；保留底层真实点击切换吐司的断言。
+- 验证：iPhone Duo / iOS 27.1 核心 **105/105 通过**（`toast-navigation-core.log`）；iPhone 17 Pro / iOS 26 相关 UI **5/5 通过**（`toast-navigation-ui-final.log`），包括三种吐司右滑、自动关闭、类型/时长切换、底层点击穿透及确认/输入框外观切换。
+- 手机包构建成功并已安装到 iPhone 13 Pro（`toast-navigation-device-build.log` / `toast-navigation-install-retry.log`）；自动启动因锁屏被系统拒绝（`Locked`，`toast-navigation-launch-retry.log`），解锁后可直接打开 Demo。本包同时包含此前的底部背景铺满修复。
+
+## 操作列表关闭按钮与抽屉统一左侧边距
+
+- 原操作列表的关闭按钮跟随正文 24 点内边距，抽屉则使用 16 点表头边距，因此两者视觉位置不同。
+- `PopoverSheetMetrics.headerHorizontalInset` 统一默认值为 16 点；操作列表关闭按钮作为内容栈的独立叠放控件定位，抽屉的 `SheetConfig.headerInset` 默认也使用同一常量。正文和操作项继续使用原来的内容内边距。
+- 按钮仍为 40×40，与标题垂直居中。左对齐标题从按钮右侧 8 点起排（默认 x = 16 + 40 + 8 = 64）；隐藏按钮后标题回到正文左边距，居中标题仍按整行对齐。
+- 既有回归检查新增按钮左边缘的实际命中断言；UI 用例检查关闭按钮距面板左侧 16 点，并实际点击按钮最左侧关闭弹窗。字体/正文边距切换用例使用既有 `--demo-scene 13` 直达入口，继续验证正文间距与标题定位。
+- 验证：核心 **105/105 通过**（`sheet-close-inset-core.log`），相关 UI **2/2 通过**（`sheet-close-inset-ui-final.log`）。手机包构建、安装并启动成功（`sheet-close-inset-device-build.log` / `sheet-close-inset-install.log` / `sheet-close-inset-launch.log`）。
+
+<a id="unified-operation-list"></a>
+
+## 统一默认底部操作列表
+
+- 默认操作列表统一为基于 `UITableView` 的 `BoneDrawerSheetView`，删除旧 `BoneActionSheetView`、`PopoverAction` 与旧渲染器，不保留兼容 alias。上一节的 `PopoverSheetMetrics` 已随旧实现移除，当前表头由 `sheetConfig.headerInset` 管理，默认仍为 16 点。
+- 普通动作通过 `addButton(text:...)` 添加，默认先关闭再回调；`dismissesPopover: false` 立即回调并保留面板。补齐可选 message、`.destructive` 红色行和自定义行辅助功能标识；默认没有额外取消行，左侧箭头关闭，右侧确定按钮按需打开。单选、多选、同分区拖动和固定高度滚动均保留为同一组件的变体。
+- 标题、说明与关闭按钮使用 `contentStyle`，表格行字体、行高和间距使用 `sheetConfig`。首次加载即应用文字样式；自定义关闭按钮尺寸后，标题与两侧按钮保持垂直居中，不对称内容边距也不会推偏居中标题。默认标题 17 点 semibold、说明 14 点、关闭按钮 40 点、行高 55 点、列表间距 16 点。
+- Demo 保留 23 个稳定场景编号，普通操作、实时样式和玻璃遮罩场景均迁移到统一组件。README、使用说明、迁移指南、阅读器对照与窗口示例已同步；源码、Demo 和测试中的旧类型引用为零。旧类型仅在删除迁移说明与历史记录中提及。
+- 核心回归：iPhone Duo / iOS 27.1 **108/108 通过，0 失败**（`unified-sheet-core-final.log` / `.xcresult`），包含普通行回调时机、动态加行、危险色、分区选择、表格几何、长列表滚动、底部安全区铺色及 Toast 导航修复。
+- Demo UI：iPhone 17 Pro / iOS 26 首轮 **14/14 通过**（`unified-sheet-ui.log` / `.xcresult`），覆盖普通/删除操作、保持打开、选择提交、排序分区打开、长列表滚达末行、折叠避让和三种 Toast 右滑。排序分区此轮只验证打开与行展示，未执行真实拖动手势。表头修正后相关 UI 与新增玻璃遮罩场景再次 **5/5 通过**（`unified-sheet-ui-final.log` / `.xcresult`）；这些复测与首轮存在重叠，不相加为独立用例数量。
+- `git diff --check` 通过。真机 Demo 构建成功（`unified-sheet-device-build.log`），但设备列表显示 iPhone 13 Pro 为 `unavailable`；刷新设备信息后两次安装均返回 `CoreDeviceError 4016`（`unified-sheet-install.log` / `unified-sheet-install-retry.log`），本次新版未完成安装或启动。

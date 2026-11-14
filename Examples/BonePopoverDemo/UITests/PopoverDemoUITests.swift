@@ -22,11 +22,12 @@ final class PopoverDemoUITests: XCTestCase {
         app.buttons["确认"].tap()
         waitUntilHittable(app.cells["scene-2"])
         app.cells["scene-2"].tap()
-        XCTAssertTrue(app.buttons["切换风格"].waitForExistence(timeout: 5))
-        for _ in 0..<4 { app.buttons["切换风格"].tap() }
-        XCTAssertTrue(app.buttons["归档项目"].isHittable)
-        capture("action-sheet-brand-glass")
-        app.buttons["取消"].tap()
+        let style = app.cells["operation-style"]
+        XCTAssertTrue(style.waitForExistence(timeout: 5))
+        for _ in 0..<4 { style.tap() }
+        XCTAssertTrue(app.cells["operation-archive"].isHittable)
+        capture("operation-list-brand-glass")
+        app.buttons["drawer-close"].tap()
         XCTAssertTrue(app.cells["scene-0"].isHittable)
     }
 
@@ -84,12 +85,14 @@ final class PopoverDemoUITests: XCTestCase {
         XCTAssertTrue(app.otherElements["popover-ready"].waitForExistence(timeout: 5))
         let content = app.otherElements["popover-content"]
         let title = app.staticTexts["popover-title"]
-        let action = app.buttons["归档项目"]
-        XCTAssertEqual(title.frame.minY - content.frame.minY, 24, accuracy: 1)
-        XCTAssertEqual(action.frame.minX - content.frame.minX, 24, accuracy: 1)
-        XCTAssertEqual(content.frame.maxX - action.frame.maxX, 24, accuracy: 1)
-        capture("sheet-title-right")
-        app.buttons["取消"].tap()
+        let table = app.tables["drawer-table"]
+        XCTAssertEqual(title.frame.minY - content.frame.minY, 10, accuracy: 1)
+        XCTAssertEqual(title.frame.minX - content.frame.minX, 16 + 40 + 8, accuracy: 1)
+        XCTAssertEqual(content.frame.maxX - title.frame.maxX, 16, accuracy: 1)
+        XCTAssertEqual(table.frame.minX, content.frame.minX, accuracy: 1)
+        XCTAssertEqual(table.frame.maxX, content.frame.maxX, accuracy: 1)
+        capture("operation-list-title-right")
+        app.buttons["drawer-close"].tap()
     }
 
     @MainActor
@@ -132,6 +135,46 @@ final class PopoverDemoUITests: XCTestCase {
     }
 
     @MainActor
+    func testDefaultOperationListExecutesActionsAndCloses() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        for (identifier, result) in [("operation-archive", "已归档"), ("operation-delete", "演示：已删除")] {
+            app.terminate()
+            app.launchArguments = ["--demo-home", "--demo-scene", "2"]
+            app.launch()
+            XCTAssertTrue(app.otherElements["popover-ready"].waitForExistence(timeout: 10))
+            let style = app.cells["operation-style"]
+            style.tap()
+            XCTAssertTrue(app.otherElements["popover-ready"].exists, "切换风格后操作列表应保持打开")
+            app.cells[identifier].tap()
+            let finished = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                !app.otherElements["popover-ready"].exists && app.staticTexts["demo-result"].label == result
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [finished], timeout: 5), .completed)
+        }
+    }
+    @MainActor
+    func testGlassBackdropControlsKeepOperationListOpen() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo-home", "--demo-scene", "19"]
+        app.launch()
+        XCTAssertTrue(app.otherElements["popover-ready"].waitForExistence(timeout: 10))
+        for (row, result) in [(1, "遮罩不透明度：0.00"), (2, "遮罩不透明度：0.12"),
+                              (0, "玻璃遮罩：关"), (0, "玻璃遮罩：开")] {
+            app.cells["drawer-row-0-\(row)"].tap()
+            let updated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                app.staticTexts["demo-result"].label == result
+            }, object: nil)
+            XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 5), .completed)
+            XCTAssertTrue(app.otherElements["popover-ready"].exists)
+        }
+        capture("operation-list-glass-backdrop")
+        app.buttons["drawer-close"].tap()
+    }
+
+
+    @MainActor
     private func waitUntilHittable(_ element: XCUIElement) {
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             element.exists && element.isHittable
@@ -139,22 +182,15 @@ final class PopoverDemoUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
     }
 
-    /// 抽屉场景：分组行可见，点击行回传结果并关闭；遮罩控制存在。
+    /// 选择型操作列表：分组行可见，选中项通过右侧“确定”提交。
     @MainActor
     func testDrawerSceneSelectsRowAndReportsResult() {
         let app = XCUIApplication()
-        app.launchArguments = ["--demo-home"]
+        app.launchArguments = ["--demo-home", "--demo-scene", "18"]
         app.launch()
         XCTAssertTrue(app.segmentedControls["backdrop-control"].waitForExistence(timeout: 10))
-        let table = app.tables["demo-list"]
-        let row = app.cells["scene-18"]
-        for _ in 0..<3 where !row.isHittable { table.swipeUp() }
-        XCTAssertTrue(row.isHittable)
-        row.tap()
         XCTAssertTrue(app.otherElements["popover-ready"].waitForExistence(timeout: 5))
-        // 抽屉改用 UITableView 后，行是 cell；先按 cell 找，兼容早期按 button 暴露的版本。
-        let option = app.cells["drawer-row-0-1"].exists
-            ? app.cells["drawer-row-0-1"] : app.buttons["drawer-row-0-1"]
+        let option = app.cells["drawer-row-0-1"]
         XCTAssertTrue(option.waitForExistence(timeout: 5))
         capture("drawer-sheet")
         option.tap()

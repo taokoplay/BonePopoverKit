@@ -12,7 +12,7 @@ final class PopoverContentStyleTests: XCTestCase {
         presenter.view.frame = window.bounds
         XCTAssertTrue(popover.show(from: presenter, animated: false))
         presenter.setOverrideTraitCollection(UITraitCollection(preferredContentSizeCategory: .large), forChild: popover)
-        let host = try XCTUnwrap(presenter.view.subviews.compactMap { $0 as? PopoverHostView }.first)
+        let host = try XCTUnwrap(popover.presentationHost)
         host.layoutIfNeeded()
         return (window, presenter, host)
     }
@@ -20,6 +20,29 @@ final class PopoverContentStyleTests: XCTestCase {
     @MainActor
     private func frame(_ view: UIView, in popover: BonePopoverView) -> CGRect {
         view.convert(view.bounds, to: popover.baseView)
+    }
+
+    @MainActor
+    private func descendants<T: UIView>(of type: T.Type, in view: UIView) -> [T] {
+        ((view as? T).map { [$0] } ?? [])
+            + view.subviews.flatMap { descendants(of: type, in: $0) }
+    }
+
+    @MainActor
+    private func row(_ index: Int, in sheet: BoneDrawerSheetView) throws -> UITableViewCell {
+        sheet.tableView.layoutIfNeeded()
+        let cell = try XCTUnwrap(sheet.tableView.cellForRow(at: IndexPath(row: index, section: 0)))
+        XCTAssertTrue(cell is BoneDrawerSheetCell)
+        cell.layoutIfNeeded()
+        return cell
+    }
+
+    @MainActor
+    private func headerFrame(in sheet: BoneDrawerSheetView) throws -> CGRect {
+        let header = try XCTUnwrap(sheet.tableView.superview?.subviews.first {
+            sheet.titleLabel.isDescendant(of: $0)
+        })
+        return frame(header, in: sheet)
     }
 
     @MainActor
@@ -44,17 +67,12 @@ final class PopoverContentStyleTests: XCTestCase {
     }
 
     @MainActor
-    func testDefaultTitleIs18PointBoldInAllPresets() throws {
+    func testDefaultAlertAndInputTitlesAre18PointBold() throws {
         let alert = BoneAlertView(title: "确认", message: "说明") {}
         let input = BoneAlertView(title: "输入", placeholder: "名称") { _ in }
-        let sheet = BoneActionSheetView(title: "操作", message: "说明", actions: [PopoverAction("分享")])
-        // 本用例度量纯文字样式与间距；关闭按钮头部的几何由 PresetLayoutTests 覆盖。
-        sheet.showsCloseButton = false
-        // 阅读器默认底栏标题居中；确认框和输入框保持左对齐。
         let presets: [(BonePopoverView, UILabel, UILabel, UIButton, NSTextAlignment)] = [
             (alert, alert.titleLabel, alert.messageLabel, alert.confirmButton, .left),
-            (input, input.titleLabel, input.messageLabel, input.confirmButton, .left),
-            (sheet, sheet.titleLabel, sheet.messageLabel, sheet.cancelButton, .center)
+            (input, input.titleLabel, input.messageLabel, input.confirmButton, .left)
         ]
         for (popover, title, message, button, alignment) in presets {
             let (window, _, _) = try present(popover)
@@ -69,6 +87,45 @@ final class PopoverContentStyleTests: XCTestCase {
             XCTAssertTrue(title.adjustsFontForContentSizeCategory)
         }
         XCTAssertEqual(input.textField.font?.pointSize ?? 0, 17, accuracy: 0.01)
+    }
+
+    @MainActor
+    func testDrawerDefaultsUseHeaderTypographyAndTableRowMetrics() throws {
+        let sheet = BoneDrawerSheetView(title: "操作", message: "说明")
+        sheet.addButton(text: "分享")
+        let (window, _, host) = try present(sheet)
+        defer { sheet.dismissPopover(animated: false); window.isHidden = true }
+        let expectedTitleFont = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        XCTAssertEqual(sheet.titleLabel.font.pointSize, expectedTitleFont.pointSize, accuracy: 0.01)
+        XCTAssertEqual(sheet.titleLabel.font.fontName, expectedTitleFont.fontName)
+        XCTAssertEqual(sheet.titleLabel.font.fontDescriptor.symbolicTraits,
+                       expectedTitleFont.fontDescriptor.symbolicTraits)
+        XCTAssertEqual(sheet.titleLabel.textAlignment, .center)
+        XCTAssertTrue(sheet.titleLabel.adjustsFontForContentSizeCategory)
+        XCTAssertEqual(sheet.messageLabel.font.pointSize, 14, accuracy: 0.01)
+        let first = try row(0, in: sheet)
+        let label = try XCTUnwrap(descendants(of: UILabel.self, in: first).first { $0.text == "分享" })
+        XCTAssertEqual(label.font, UIFont.boldSystemFont(ofSize: 16))
+        XCTAssertEqual(first.bounds.height, 55, accuracy: 1)
+
+        let insets = sheet.configuration.contentStyle.contentInsets
+        XCTAssertEqual(insets.top, 0)
+        XCTAssertEqual(insets.leading, 0)
+        XCTAssertEqual(insets.bottom, 20)
+        XCTAssertEqual(insets.trailing, 0)
+        let message = frame(sheet.messageLabel, in: sheet)
+        let table = frame(sheet.tableView, in: sheet)
+        XCTAssertEqual(message.minX, 16, accuracy: 1)
+        XCTAssertEqual(sheet.baseView.bounds.width - message.maxX, 16, accuracy: 1)
+        XCTAssertEqual(message.minY - (try headerFrame(in: sheet)).maxY, 14, accuracy: 1)
+        XCTAssertEqual(table.minY - message.maxY, 16, accuracy: 1)
+        XCTAssertEqual(table.minX, 0, accuracy: 1)
+        XCTAssertEqual(table.maxX, sheet.baseView.bounds.width, accuracy: 1)
+        XCTAssertEqual(sheet.baseView.bounds.height - table.maxY, 20, accuracy: 1)
+        XCTAssertTrue(sheet.configuration.appearance.showsGrabber)
+        XCTAssertFalse(host.surface.grabber.isHidden)
+        XCTAssertEqual(host.surface.contentContainer.frame.minY, 20, accuracy: 1,
+                       "抓手区域由 Host 提供，不重复计入内容边距")
     }
 
     @MainActor
@@ -104,40 +161,86 @@ final class PopoverContentStyleTests: XCTestCase {
     }
 
     @MainActor
-    func testActionListUsesSharedStyleAndRetainsVerticalActionsAndImages() throws {
+    func testOperationListUsesMessageStyleAndIndependentTableRowMetrics() throws {
         for hasMessage in [false, true] {
-            let image = UIImage(systemName: "trash")
-            let sheet = BoneActionSheetView(title: "项目操作", message: hasMessage ? "操作说明" : nil, actions: [
-                PopoverAction("删除", image: image, role: .destructive), PopoverAction("保留")
-            ])
+            let image = try XCTUnwrap(UIImage(systemName: "trash")).withRenderingMode(.alwaysOriginal)
+            let sheet = BoneDrawerSheetView(title: "项目操作", message: hasMessage ? "操作说明" : nil)
+            sheet.addButton(text: "删除", icon: image, style: .destructive)
+            sheet.addButton(text: "保留")
             var style = customStyle()
             style.buttonLayout = .horizontal
             sheet.configuration.contentStyle = style
-            // 本用例度量纯内容间距；关闭按钮头部的几何由 PresetLayoutTests 覆盖。
-            sheet.showsCloseButton = false
-            let (window, _, _) = try present(sheet)
+            let (window, _, host) = try present(sheet)
             defer { sheet.dismissPopover(animated: false); window.isHidden = true }
             XCTAssertEqual(sheet.titleLabel.font, style.titleFont)
+            XCTAssertEqual(sheet.titleLabel.textColor, style.titleColor)
+            XCTAssertEqual(sheet.titleLabel.textAlignment, style.titleAlignment)
             XCTAssertEqual(sheet.messageLabel.font, style.messageFont)
-            let title = frame(sheet.titleLabel, in: sheet)
-            let first = frame(sheet.actionButtons[0], in: sheet)
-            let second = frame(sheet.actionButtons[1], in: sheet)
-            let cancel = frame(sheet.cancelButton, in: sheet)
+            XCTAssertEqual(sheet.messageLabel.textColor, style.messageColor)
+            XCTAssertEqual(sheet.messageLabel.textAlignment, style.messageAlignment)
+            let table = frame(sheet.tableView, in: sheet)
+            let contentBottom: CGFloat
             if hasMessage {
                 let message = frame(sheet.messageLabel, in: sheet)
-                XCTAssertEqual(message.minY - title.maxY, 9, accuracy: 1)
-                XCTAssertEqual(first.minY - message.maxY, 23, accuracy: 1)
+                XCTAssertEqual(message.minY - (try headerFrame(in: sheet)).maxY, 9, accuracy: 1)
+                XCTAssertEqual(message.minX - table.minX, sheet.sheetConfig.headerInset, accuracy: 1)
+                XCTAssertEqual(table.maxX - message.maxX, sheet.sheetConfig.headerInset, accuracy: 1)
+                contentBottom = message.maxY
             } else {
-                XCTAssertEqual(first.minY - title.maxY, 23, accuracy: 1)
+                contentBottom = try headerFrame(in: sheet).maxY
             }
-            XCTAssertEqual(first.minX, 28, accuracy: 1)
-            XCTAssertEqual(sheet.baseView.bounds.width - first.maxX, 36, accuracy: 1)
-            XCTAssertEqual(second.minY - first.maxY, 18, accuracy: 1)
-            XCTAssertEqual(cancel.minY - second.maxY, 18, accuracy: 1)
-            XCTAssertEqual(sheet.baseView.bounds.height - cancel.maxY, 30, accuracy: 1)
-            XCTAssertEqual(sheet.actionButtons[0].configuration?.image, image)
-            XCTAssertEqual(sheet.actionButtons[0].tintColor, .systemRed)
-            XCTAssertEqual(sheet.actionButtons[0].titleLabel?.font, style.buttonFont)
+            XCTAssertEqual(table.minY - contentBottom, sheet.sheetConfig.listTopSpacing, accuracy: 1)
+            XCTAssertEqual(table.minX, 28, accuracy: 1)
+            XCTAssertEqual(sheet.baseView.bounds.width - table.maxX, 36, accuracy: 1)
+            XCTAssertEqual(sheet.baseView.bounds.height - table.maxY, 30, accuracy: 1)
+            let first = try row(0, in: sheet)
+            let second = try row(1, in: sheet)
+            XCTAssertEqual(first.bounds.height, sheet.sheetConfig.cellHeight, accuracy: 1)
+            XCTAssertEqual(second.frame.minY, first.frame.maxY, accuracy: 1,
+                           "表格行连续排列，不使用 Alert 的 buttonSpacing 或 buttonLayout")
+            let label = try XCTUnwrap(descendants(of: UILabel.self, in: first).first { $0.text == "删除" })
+            XCTAssertEqual(label.font, sheet.sheetConfig.fontSize)
+            XCTAssertEqual(label.textColor, .systemRed)
+            let icon = try XCTUnwrap(descendants(of: UIView.self, in: first).first {
+                $0.accessibilityIdentifier == "drawer-row-icon"
+            })
+            XCTAssertEqual(descendants(of: UIImageView.self, in: icon).first?.image, image)
+
+            sheet.configuration.contentStyle.buttonFont = .systemFont(ofSize: 50)
+            sheet.configuration.contentStyle.buttonSpacing = 80
+            sheet.configuration.contentStyle.buttonLayout = .vertical
+            sheet.configuration.contentStyle.contentToButtonsSpacing = 90
+            host.layoutIfNeeded()
+            let unchanged = try row(0, in: sheet)
+            let unchangedLabel = try XCTUnwrap(descendants(of: UILabel.self, in: unchanged).first {
+                $0.text == "删除"
+            })
+            XCTAssertEqual(unchangedLabel.font, sheet.sheetConfig.fontSize)
+            XCTAssertEqual(sheet.messageLabel.font, style.messageFont)
+            XCTAssertEqual(unchanged.bounds.height, 55, accuracy: 1)
+            XCTAssertEqual(frame(sheet.tableView, in: sheet).minY - contentBottom, 16, accuracy: 1)
+            XCTAssertEqual(try row(1, in: sheet).frame.minY, unchanged.frame.maxY, accuracy: 1)
+
+            sheet.sheetConfig.fontSize = .boldSystemFont(ofSize: 20)
+            sheet.sheetConfig.cellHeight = 68
+            sheet.sheetConfig.listTopSpacing = 24
+            host.layoutIfNeeded()
+            let updated = try row(0, in: sheet)
+            let updatedLabel = try XCTUnwrap(descendants(of: UILabel.self, in: updated).first {
+                $0.text == "删除"
+            })
+            XCTAssertEqual(updatedLabel.font, sheet.sheetConfig.fontSize)
+            XCTAssertEqual(updated.bounds.height, 68, accuracy: 1)
+            XCTAssertEqual(frame(sheet.tableView, in: sheet).minY - contentBottom, 24, accuracy: 1)
+
+            sheet.sheetConfig.headerInset = 24
+            host.layoutIfNeeded()
+            if hasMessage {
+                let message = frame(sheet.messageLabel, in: sheet)
+                let table = frame(sheet.tableView, in: sheet)
+                XCTAssertEqual(message.minX - table.minX, 24, accuracy: 1)
+                XCTAssertEqual(table.maxX - message.maxX, 24, accuracy: 1)
+            }
         }
     }
 
@@ -273,10 +376,10 @@ final class PopoverContentStyleTests: XCTestCase {
         XCTAssertEqual(alert.titleAlignment, .left)
         XCTAssertEqual(alert.titleLabel.textAlignment, .left)
         XCTAssertEqual(alert.buttonLayout, .automatic)
-        let sheet = BoneActionSheetView(title: "列表", actions: [])
+        let sheet = BoneDrawerSheetView(title: "列表")
         sheet.loadViewIfNeeded()
-        sheet.titleAlignment = .center
-        XCTAssertEqual(sheet.configuration.contentStyle.titleAlignment, .center)
+        sheet.titleAlignment = .right
+        XCTAssertEqual(sheet.configuration.contentStyle.titleAlignment, .right)
         sheet.configuration.contentStyle.titleFont = .boldSystemFont(ofSize: 25)
         XCTAssertEqual(sheet.titleLabel.font.pointSize, 25, accuracy: 0.01)
         sheet.configuration = .bottomSheet

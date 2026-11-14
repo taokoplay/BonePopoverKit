@@ -54,41 +54,43 @@ final class PopoverContentStyleUITests: XCTestCase {
     func testLiveStyleChangesAndRestoresTheActionListLayout() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["--demo-home"]
+        app.launchArguments = ["--demo-home", "--demo-scene", "13"]
         app.launch()
-        openScene(13, in: app)
+        XCTAssertTrue(app.otherElements["popover-ready"].waitForExistence(timeout: 5))
         let content = app.otherElements["popover-content"]
         let title = app.staticTexts["popover-title"]
         let message = app.staticTexts["popover-message"]
-        let toggle = app.buttons["toggle-content-style"]
-        let cancel = app.buttons["popover-cancel"]
+        let toggle = app.cells["toggle-content-style"]
+        let table = app.tables["drawer-table"]
+        let close = app.buttons["drawer-close"]
         let originalHeight = content.frame.height
         for expanded in [true, false] {
             XCTAssertTrue(toggle.isHittable)
             toggle.tap()
-            let padding: CGFloat = expanded ? 32 : 24
+            let rowHeight: CGFloat = expanded ? 72 : 55
             let layoutChanged = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-                abs(title.frame.minY - content.frame.minY - padding) <= 1
+                abs(toggle.frame.height - rowHeight) <= 1
             }, object: nil)
             XCTAssertEqual(XCTWaiter.wait(for: [layoutChanged], timeout: 5), .completed)
-            // 操作列表标题左侧固定有 40 点关闭按钮 + 8 点间距（showsCloseButton 默认开）。
-            XCTAssertEqual(title.frame.minX - content.frame.minX, padding + 48, accuracy: 1)
-            XCTAssertEqual(content.frame.maxX - title.frame.maxX, padding, accuracy: 1)
-            XCTAssertEqual(message.frame.minY - title.frame.maxY, expanded ? 20 : 14, accuracy: 1)
-            XCTAssertEqual(toggle.frame.minY - message.frame.maxY, expanded ? 28 : 14, accuracy: 1)
-            XCTAssertEqual(cancel.frame.minY - toggle.frame.maxY, expanded ? 20 : 12, accuracy: 1)
-            XCTAssertEqual(content.frame.maxY - cancel.frame.maxY, padding, accuracy: 1)
+            XCTAssertEqual(title.frame.minY - content.frame.minY, 10, accuracy: 1)
+            XCTAssertEqual(title.frame.midX, content.frame.midX, accuracy: 1)
+            XCTAssertEqual(close.frame.minX - content.frame.minX, 16, accuracy: 1)
+            XCTAssertEqual(message.frame.minY - title.frame.maxY, (expanded ? 20 : 14) + 10, accuracy: 1)
+            XCTAssertEqual(table.frame.minY - message.frame.maxY, expanded ? 24 : 16, accuracy: 1)
+            XCTAssertEqual(toggle.frame.height, rowHeight, accuracy: 1)
+            XCTAssertEqual(content.frame.maxY - table.frame.maxY, expanded ? 32 : 20, accuracy: 1)
             if expanded { XCTAssertGreaterThan(content.frame.height, originalHeight + 40) }
             else { XCTAssertEqual(content.frame.height, originalHeight, accuracy: 1) }
             XCTAssertEqual(toggle.label, "切换字体与间距")
+            XCTAssertTrue(app.otherElements["popover-ready"].exists)
             capture(expanded ? "live-content-style-expanded" : "live-content-style-default")
         }
-        cancel.tap()
+        close.tap()
     }
 
-    /// 阅读器默认 sheet 样式：贴底、无遮罩、宽度填满所在可用区；外观"自动"时预设默认值不被覆盖。
+    /// 默认底部操作列表：贴底、无遮罩、表格行与左侧箭头关闭，右侧按钮默认隐藏。
     @MainActor
-    func testActionSheetUsesReaderDefaultSheetLayout() {
+    func testOperationListUsesReaderDefaultSheetLayout() {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
         addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
@@ -106,11 +108,14 @@ final class PopoverContentStyleUITests: XCTestCase {
         // 贴底：面板底缘位于窗口底部，避让主页指示器安全区。
         XCTAssertLessThanOrEqual(content.maxY, windowFrame.maxY + 1)
         XCTAssertGreaterThan(content.maxY, windowFrame.maxY - 40)
-        XCTAssertTrue(app.buttons["popover-cancel"].isHittable)
-        let closeButton = app.buttons["popover-close"]
+        XCTAssertTrue(app.tables["drawer-table"].isHittable)
+        XCTAssertFalse(app.buttons["drawer-confirm"].exists)
+        let closeButton = app.buttons["drawer-close"]
         XCTAssertTrue(closeButton.isHittable, "标题左侧应有向下箭头关闭按钮")
-        capture("action-sheet-reader-default")
-        closeButton.tap()
+        XCTAssertEqual(closeButton.frame.minX - content.minX, 16, accuracy: 1,
+                       "关闭按钮左侧间距应与抽屉一致")
+        capture("operation-list-reader-default")
+        closeButton.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.5)).tap()
         XCTAssertTrue(app.cells["scene-2"].waitForExistence(timeout: 5))
     }
 }

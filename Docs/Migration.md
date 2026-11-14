@@ -32,7 +32,7 @@
 | `config.swipeToDismissEnabled` | `configuration.allowsDragToDismiss`；居中预设默认关，开启后可滑动 |
 | `config.allowedSwipeDirections` / `swipeThreshold` | `configuration.allowedSwipeDirections` / `swipeThreshold`；支持四向组合与关闭投影距离 |
 | `baseView.backgroundColor` / 圆角 | 优先配置 `appearance`，避免不透明业务底色覆盖玻璃 |
-| 内置标题 / 正文字体、对齐和内部间距 | 统一放入 `configuration.contentStyle: PopoverContentStyle`；标题默认 18 点粗体、正文 17 点 |
+| 内置标题 / 正文字体、对齐和内部间距 | `configuration.contentStyle`；Alert 默认标题 18 点粗体、正文 17 点，操作列表默认标题 17 点 semibold、说明 14 点，行样式使用 `sheetConfig` |
 | `showAnimation` / `dismissAnimation` | `PopoverAnimation` 自定义隐藏端点、时长、阻尼 |
 | `CLPopoverManager`、queue/interrupt/replace/unique、优先级 | 本版未实现；由 App 协调展示顺序，不能假定自动排队/去重 |
 | `allowsEventPenetration` / `autoHideWhenPenetrated` | `configuration` 内保留同名开关：外部触摸穿透，及穿透点击后是否关闭 |
@@ -47,7 +47,7 @@
 
 ## 独立窗口模式迁移
 
-本包当前版本恢复旧组件的独立 Window 能力。`show()` 和 `show(in:)` 相比本包早期版本改为独立窗口；保留页面内展示行为时改用 `show(from:)`。多业务 Window 建议使用 `show(over: sourceWindow)`，明确绑定其所属 Scene；SDK 不读取 AppDelegate.window、固定窗口标识或全局首个活跃 Scene。
+本包当前版本恢复旧组件的独立 Window 能力。`show()` 和 `show(in:)` 相比本包早期版本改为独立窗口；保留页面内展示行为时改用 `show(from:)`，传入导航/标签容器时自动选择当前内容页，不改变导航返回栈或标签列表。覆盖导航栏、标签栏及整个业务窗口，或处理多业务 Window 时，使用 `show(over: sourceWindow)` 明确绑定所属 Scene；SDK 不读取 AppDelegate.window、固定窗口标识或全局首个活跃 Scene。
 
 窗口创建选项位于 `configuration.window`，含 level、stacking、keyPolicy 和 container，本次展示使用快照，下次展示应用变更。默认 takeAndRestore 接管并恢复有效 key Window；无需键盘的浮层可 preserveCurrent。导航 push/pop 沿用 UIKit，关闭弹窗会清理整个窗口导航栈。旧 queue/interrupt/replace/unique 仍需由业务协调，未自动迁入。
 
@@ -92,19 +92,55 @@ final class ReaderOptionsSheet: BonePopoverKit.BonePopoverView {
 
 已有 PinLayout 可以继续用于 `baseView` 内的业务控件，但不要再用全局屏幕尺寸定位弹窗本身。自带 UITableView/UICollectionView/WKWebView 的大内容应设置明确高度，并决定是否关闭外层 `scrollsOverflow`，避免重复滚动容器。
 
+<a id="action-sheet-migration"></a>
+
+## 操作列表迁移：旧 API 已删除
+
+默认底部操作列表统一为基于 UITableView 的 `BoneDrawerSheetView`。`BoneActionSheetView` 和 `PopoverAction` 已从 SDK 删除，**不提供兼容 alias**；本节左列只用于识别历史调用，不代表当前可用 API。普通动作、单选、多选、同分区拖动和固定高度滚动均使用同一组件。
+
+| 已删除的旧 API / 用法 | 当前迁移方式 |
+| --- | --- |
+| `BoneActionSheetView(title:message:actions:cancelTitle:)` | `BoneDrawerSheetView(title:message:)`，再逐行 `addButton(text:...)`；message 为可选多行说明。 |
+| `PopoverAction(title, image:role:dismissesPopover:handler:)` | 将标题传给 `text:`、image 传给 `icon:`、handler 传给 `callback:`；普通样式用 `.default`，删除样式用 `.destructive`，强调样式可用 `.highlight`；dismissesPopover 保留同名参数。 |
+| `actions` 数组 / `addAction(...)` | 遍历业务模型并调用 `addButton(text:value:icon:style:inSection:dismissesPopover:accessibilityIdentifier:callback:)`；不再构造 SDK 动作模型。 |
+| `let button = sheet.addButton(...)` / `actionButtons` | 新 addButton 返回 Void，行由 UITableView 管理；辅助功能标识传 `accessibilityIdentifier:`，行字体、颜色、行高及分隔线使用 `sheetConfig`，不要再获取 UIButton。 |
+| `sheet.cancelButton` / `sheet.cancelTitle` / 初始化的 cancelTitle | 默认没有底部取消行，使用左侧 `closeButton`、`showsCloseButton` 与 `closeAccessibilityLabel`；需要额外关闭行时显式添加普通行。Alert 的 `cancelButton` / `cancelTitle` 保留。 |
+| 用 `contentStyle.buttonFont` / `buttonSpacing` / `buttonLayout` 控制操作按钮 | 表格行使用 `sheetConfig.fontSize`（UIFont）、`cellHeight`、`sectionHeight` / `cellSeparatorColor`；表头间距使用 `headerInset`、`headerTopSpacing`、`listTopSpacing`。这些 contentStyle 按钮字段仍用于 Alert。 |
+| 独立的抽屉 / 选择 / 排序 / 长列表组件 | 统一使用 BoneDrawerSheetView 的 `.singleSelect` / `.multipleSelect` / `.drag` 分区及 `sheetConfig.maximumListHeight`。 |
+
+```swift
+let sheet = BoneDrawerSheetView(title: "项目操作", message: "选择要执行的操作")
+sheet.addButton(text: "分享", icon: UIImage(systemName: "square.and.arrow.up"),
+                accessibilityIdentifier: "sheet-share") {
+    print("弹窗已关闭，执行分享")
+}
+sheet.addButton(text: "刷新状态", dismissesPopover: false) {
+    print("立即刷新，保留面板")
+}
+sheet.addButton(text: "删除", style: .destructive) {
+    print("弹窗已关闭，执行删除业务")
+}
+sheet.closeAccessibilityLabel = "Close"
+sheet.show(from: presenter)
+```
+
+普通行默认先关闭并移除，再执行 callback；`dismissesPopover: false` 立即回调且不关闭。`.singleSelect` / `.multipleSelect` 点行只更新选择，`.drag` 仅在同分区排序；三者统一通过 **`showsConfirmButton = true` + `selectAction`** 提交。右按钮默认隐藏，不会因分区类型自动出现。`confirmTitle`、`trailingButton`、`onTrailingButtonTap` 仍可用；接管右按钮点击后，宿主负责提交或关闭。长列表通过 `sheetConfig.maximumListHeight`（默认 500 点）限制列表高度并内部滚动，默认关闭外层滚动。完整示例见[操作列表与变体](UsageGuide.md#action-sheet)。
+
+视觉默认值也需随调用迁移：面板 `systemGroupedBackground`、行 `secondarySystemGroupedBackground`，纯色面板仅顶部两角 16 点、无阴影、无背景遮罩且显示抓手。标题 17 点 semibold 居中，说明 14 点；表头左右 16 点、标题上下 10 点、到列表 16 点，行高 55 点、行字体 16 点粗体。贴底材质铺满底部安全区，内容继续避让；不要再额外加入安全区填色视图或内容边距。
+
 ## 同名预设差异
 
 - Wecat、StudyPlan、TaokoManage、ValuablePicture 和旧包的确认/输入 `BoneAlertView`：可使用新包相同 initializer labels；配置与回调时机需核对。
 - ParsingBook 的 `BoneEasyAlertView`：对应新 `BoneAlertView`；密码配置在公开的 `textField.isSecureTextEntry`，按钮可通过 `confirmButton` / `cancelButton` 自定义。旧有所有便捷属性不保证逐一同名。
-- ParsingBook 的 `BoneAlertView(title:message:) + addButton/loading`：与本版同名类语义不同。可改用 `BoneActionSheetView` 的 actions，或继续将业务多按钮/loading UI 作为自定义内容；loading 不自动结束、不应伪装成普通确认回调。
-- `BoneDrawerSheetView` 的分组/单选/多选/拖拽排序和 `customCellProvider`：本版通用操作列表未实现这些业务接口。保留原内容逻辑，迁移到新基类；不能以 typealias 冒充完整兼容。
+- ParsingBook 的 `BoneAlertView(title:message:) + addButton/loading`：与本版同名类语义不同。普通多动作列表改用 `BoneDrawerSheetView` 的普通行；业务 loading UI 继续作为自定义内容，loading 不自动结束、不应伪装成普通确认回调。
+- 阅读器的 `BoneDrawerSheetView` 分组、单选、多选和同分区拖动：使用当前同名组件及 `sheetConfig`；统一提交需显式打开 `showsConfirmButton` 并注册 `selectAction`。依赖旧 `customCellProvider` 的业务自定义 cell 仍需自行适配，不假设旧同名 API 完全兼容。
 - `BoneInputAlertView` 多字段、`BonePromptView`：作为自定义内容迁移；单字段输入已有内置实现。
 
 ## 统一内容样式
 
-确认框、输入框和操作列表的 `UIFont`、颜色、对齐、内容内边距、标题/正文/按钮间距统一由 `PopoverContentStyle` 管理。原 `titleAlignment` 和 Alert 的 `buttonLayout` 便利入口继续可用，但现在直接读写 `configuration.contentStyle`；整份覆盖 `configuration` 会同时替换它们。先选择 `.centerDialog`、`.bottomSheet` 等配置，再定制样式。
+确认框、输入框和操作列表的标题、说明、颜色、对齐与内容内边距通过 `PopoverContentStyle` 管理。`titleAlignment` 和 Alert 的 `buttonLayout` 便利入口直接读写 `configuration.contentStyle`；整份覆盖 `configuration` 会同时替换它们。先选择 `.centerDialog`、`.bottomSheet` 等配置，再定制样式。`BoneDrawerSheetView` 的行字体、行高、分隔线和表头/列表间距由 `sheetConfig` 管理，contentStyle 的 Alert 按钮字段不参与表格行布局。
 
-默认标题改为 `UIFont.boldSystemFont(ofSize: 18)`，正文基础字号仍为 17。Dynamic Type 默认开启；设置 `adjustsFontForContentSizeCategory = false` 可固定字号。迁移原来直接赋值 `titleLabel.font`、`messageLabel.font` 或对齐的代码时，将其改为 `configuration.contentStyle.titleFont`、`messageFont`、`titleAlignment`、`messageAlignment`，避免后续样式刷新覆盖。按钮标题和图标继续使用公开控件修改。
+Alert 默认标题为 18 点粗体、正文 17 点；操作列表默认标题为 17 点 semibold 居中、说明 14 点，`contentInsets` 为 top 0、leading 0、bottom 20、trailing 0。Dynamic Type 默认开启；设置 `adjustsFontForContentSizeCategory = false` 可固定标题和说明字号。迁移直接赋值 `titleLabel.font`、`messageLabel.font` 或对齐的代码时，改为 `configuration.contentStyle.titleFont`、`messageFont`、`titleAlignment`、`messageAlignment`，避免后续样式刷新覆盖。Alert 按钮与操作列表的 closeButton / trailingButton 可通过公开控件修改；表格行不返回 UIButton。
 
 自定义业务子类的控件由业务继续管理；需要跟随此样式时覆盖 `applyContentStyle()`，在控件构建完成后主动调用一次。完整设置示例和默认值见 [使用说明第 4 节](UsageGuide.md#titles)。
 
@@ -124,16 +160,18 @@ Duo 需要 App 也使用支持该设备的 SDK 构建；最低系统设为 iOS 1
 
 迁移每个场景时验证：普通 iPhone、iPad 窄分屏、Duo 展开/折叠与旋转，输入键盘和长文本、动态字号、VoiceOver 关闭、减弱动态效果/降低透明度，以及连续展示关闭。当前包的已执行检查和未执行项见 [Validation.md](Validation.md)。
 
-## 新增可选项（不设置即旧行为）
+## 可选配置与组件默认值
 
-迁移时不需要为新字段做任何修改，以下入口只在显式赋值时生效：
+以下入口用于定制当前组件；未设置时使用各自默认值。旧操作列表 API 的删除仍须按上文迁移。
 
 | 入口 | 用途 | 默认 |
 | --- | --- | --- |
-| `alert.confirmTitle` / `.cancelTitle`、`sheet.cancelTitle` / `.closeAccessibilityLabel`、`toast.typeDescriptions`、`popover.backdropAccessibilityLabel` | 各组件自己的文案入口 | `nil`，使用原中文文案 |
+| `alert.confirmTitle` / `.cancelTitle` | Alert 确认、取消文案 | `nil` → “确认”“取消” |
+| `sheet.confirmTitle` / `.closeAccessibilityLabel` | 操作列表确定文案与关闭辅助功能标签 | `nil` → “确定”“关闭”；确定按钮默认隐藏 |
+| `toast.typeDescriptions` / `popover.backdropAccessibilityLabel` | 类型描述与遮罩辅助功能标签 | `nil` → 类型原文 / `NSLocalizedString("Dismiss")` |
 | `configuration.interfaceStyle` | 固定弹层浅色/深色，替代旧包的 `userInterfaceStyleOverride` | `.unspecified`，跟随宿主 |
 | `contentStyle.closeButtonImage` / `.closeButtonSize` | 替换操作列表关闭按钮图标与命中区 | `nil` / 40 点 |
 | `PopoverAnimation.scale(_:)` | 调整缩放动画幅度（旧包写死 0.8） | `.scale` = 0.92 |
-| `alert.confirmTitle` / `.cancelTitle`、`sheet.cancelTitle` | 运行期修改按钮文案 | `nil`，回退 SDK/初始化默认 |
+| `sheet.showsCloseButton` / `.showsConfirmButton` | 头部左右按钮的显示 | `true` / `false` |
 
 完整对照见 [阅读器对照](ReaderParity.md)。

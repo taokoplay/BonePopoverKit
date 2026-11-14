@@ -1,10 +1,12 @@
 # BonePopoverKit 扩展需求评估稿：确认框按钮标题可配置
 
-状态：**待 SDK 开发 AI 评估**。本稿不代表采纳、排期或已有实现，由用户转交负责该 SDK 的 AI。
+状态：**历史需求与实现记录**。正文基于下述精确版本起草，保留当时的调研、提案与验收口径；当前接入以[使用说明](../UsageGuide.md)和[迁移说明](../Migration.md#action-sheet-migration)为准。
 
 - 缺口分类（按 bone-project-bootstrap 第 5 步）：**3. 可复用 SDK 缺口**
 - 证据强度：代码级不对称（内置组件之间）+ 单语言 Demo 实际渲染；**暂无多语言消费方实测数据**，请按此强度评估。
 - 起草方式：仅做源码/文档核对与缺口整理，未修改 SDK 仓库、未 fork、未开 Issue、未发消息。
+
+当前 API 补注：Alert 已公开 `confirmTitle` / `cancelTitle`。底部操作列表统一使用 `BoneDrawerSheetView`，旧 `BoneActionSheetView`、`PopoverAction` 已删除，不保留兼容 alias。下文出现的旧操作列表初始化器、cancelTitle、源码行号及测试数量均为历史证据，不代表当前可用 API 或本次验证结果。
 
 ## 请求与版本
 
@@ -19,7 +21,7 @@
   - `Sources/BonePopoverKit/PopoverPresets.swift`
     - `BoneAlertView.init(title:message:callback:)`（:81）、`init(title:placeholder:callback:)`（:91）：**没有按钮标题参数**。
     - `viewDidLoad` 内 `configurePopoverButton(confirmButton, title: "确认", prominent: true)`（:116）、`configurePopoverButton(cancelButton, title: "取消", prominent: false)`（:117）：标题是字面量。
-    - `BoneActionSheetView.init(title:message:actions:cancelTitle:)`（:254）：`cancelTitle: String = "取消"` **已参数化**；动作标题来自 `PopoverAction(_ title:)`。
+    - **历史 API，现已删除**：`BoneActionSheetView.init(title:message:actions:cancelTitle:)`（当时 :254）的 `cancelTitle: String = "取消"` 已参数化；动作标题来自旧 `PopoverAction(_ title:)`。当前操作列表改用 BoneDrawerSheetView + addButton(text:...)，默认没有取消行。
   - `configurePopoverButton`（:409-416）只在创建时写入 `configuration.title`；`applyPopoverTypography`（:420+）注释明确“保留按钮已有标题”，样式刷新不回写标题。
   - 检索结论：`Sources/` 下无 `*.strings` / `*.lproj`；`Package.swift` 无 `resources:`。因此 SDK 没有可覆盖的内置文案资源。相关但独立的中文文案还有：关闭按钮 `closeButton.accessibilityLabel = "关闭"`（:301）、`BoneToastView` 用中文作 key 的 `NSLocalizedString("成功"/"失败"/"提示"/"加载中")`（:211-214）、背景遮罩用英文 key `NSLocalizedString("Dismiss")`（`PopoverHostView.swift:59`）。
 
@@ -37,7 +39,7 @@
 
 ## 为什么考虑进入 SDK
 
-- 当前 API 已覆盖什么、差什么：内容、样式、布局、关闭语义、无障碍标识都已覆盖；**只差按钮文案的注入点**。同一 SDK 内 `BoneActionSheetView.cancelTitle` 已经证明“按钮标题参数化”是可接受的 API 形态，两个内置组件之间的能力不一致。
+- 起草时 API 已覆盖什么、差什么：内容、样式、布局、关闭语义、无障碍标识都已覆盖；**只差按钮文案的注入点**。当时的 `BoneActionSheetView.cancelTitle`（现已删除）用于说明“按钮标题参数化”的可行性，不是当前推荐用法；当前 Alert 使用自身 confirmTitle / cancelTitle，操作列表使用 BoneDrawerSheetView。
 - 已尝试或查过的公开能力：`BoneAlertView.confirmButton` / `cancelButton` 是 `public let`，`BoneAlertView` 是 `open class` 且 `viewDidLoad` 为 `open override`；`PopoverConfiguration.contentStyle` 不含标题字段。没有其它公开入口。
 - 可在宿主实现的替代及实际代价：
   1. **加载后覆盖**：`alert.loadViewIfNeeded()` 之后改 `alert.confirmButton.configuration?.title`。可行且样式刷新不会回写，但属于隐式约定：每个实例都要手动写、`UIButton.Configuration` 状态需自行重建、无处发现、SDK 若将来调整按钮配置方式即失效；首次 `viewDidLoad` 到宿主覆盖之间还可能有一帧中文。
@@ -105,7 +107,13 @@
 
 本稿核对后，本仓库（SDK 侧）已直接落地其中最小方案，转交时可作为“已有实现参考”而非待评估提案：
 
-- `configuration.buttonTitles`（`PopoverButtonTitles`，字段默认 `nil`）+ `BoneAlertView.confirmTitle` / `cancelTitle`；空串视为未配置；显示期间修改立即生效并重新测量。
+- 当时实现使用 `configuration.buttonTitles`（`PopoverButtonTitles`，字段默认 nil）+ `BoneAlertView.confirmTitle` / `cancelTitle`；空串视为未配置，显示期间修改立即生效并重新测量。此处保留早期方案记录，当前文案配置请使用各组件公开属性，见[阅读器对照](../ReaderParity.md)。
 - 默认值仍为“确认”“取消”，旧调用与渲染不变；宿主直接改写 `button.configuration?.title` 的旧路径继续被保留（仅在配置项变化时回写）。
 - 验证：`Tests/BonePopoverKitTests/PopoverReaderParityTests.swift`（5 项）、核心回归 79/79；记录见 `Docs/Validation.md`。
 - 仍未做：`nil`/空串之外的语义（如 `String` 模板、内置多语言包）与其它硬编码文案（关闭按钮 a11y 标签、Toast 类型文案）未一并处理。
+
+## 当前操作列表迁移补注
+
+普通动作、单选、多选、同分区拖动及固定高度滚动均使用 `BoneDrawerSheetView(title:message:)`。逐行调用 `addButton(text:value:icon:style:inSection:dismissesPopover:accessibilityIdentifier:callback:)`（除 text 外均有默认值），返回 Void；普通行默认先关闭再回调，dismissesPopover: false 即时回调且保持面板。选择型分区显式设置 showsConfirmButton = true 并通过 selectAction 提交，右按钮默认隐藏。
+
+旧操作列表的 actions / addAction、actionButtons、cancelButton / cancelTitle 以及返回 UIButton 的 addButton 均已删除；默认通过左侧向下箭头关闭，相关入口是 closeButton、showsCloseButton 和 closeAccessibilityLabel。操作列表右侧 confirmTitle、trailingButton、onTrailingButtonTap 保留；Alert 自身的 confirmTitle / cancelTitle 不受这次列表迁移影响。

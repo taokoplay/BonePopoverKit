@@ -12,7 +12,7 @@ final class PopoverDrawerSheetTests: XCTestCase {
         window.makeKeyAndVisible()
         presenter.view.frame = window.bounds
         XCTAssertTrue(popover.show(from: presenter, animated: false))
-        let host = try XCTUnwrap(presenter.view.subviews.compactMap { $0 as? PopoverHostView }.first)
+        let host = try XCTUnwrap(popover.presentationHost)
         host.layoutIfNeeded()
         return (window, presenter, host)
     }
@@ -28,16 +28,22 @@ final class PopoverDrawerSheetTests: XCTestCase {
         return nil
     }
 
-    /// 抽屉改用 UITableView 后，行是 cell；按标识在层级里找。
     @MainActor
-    private func cell(_ identifier: String, in view: UIView) -> UITableViewCell? {
-        if let cell = view as? UITableViewCell, cell.accessibilityIdentifier == identifier {
-            return cell
-        }
+    private func identifiedView(_ identifier: String, in view: UIView) -> UIView? {
+        if view.accessibilityIdentifier == identifier { return view }
         for subview in view.subviews {
-            if let found = cell(identifier, in: subview) { return found }
+            if let found = identifiedView(identifier, in: subview) { return found }
         }
         return nil
+    }
+
+    /// 使用表格实际显示的 cell，避免向数据源额外取行而改变复用队列。
+    @MainActor
+    private func visibleCell(_ sheet: BoneDrawerSheetView, at indexPath: IndexPath) throws -> BoneDrawerSheetCell {
+        sheet.tableView.layoutIfNeeded()
+        let cell = try XCTUnwrap(sheet.tableView.cellForRow(at: indexPath) as? BoneDrawerSheetCell)
+        cell.layoutIfNeeded()
+        return cell
     }
 
     /// 模拟点击某一行：直接走 table view 的选中回调，等价于用户点这一行。
@@ -162,15 +168,17 @@ final class PopoverDrawerSheetTests: XCTestCase {
         let (window, _, _) = try present(sheet)
         defer { sheet.dismissPopover(animated: false); window.isHidden = true }
 
-        func countRows(_ view: UIView) -> Int {
-            var total = 0
-            if let id = view.accessibilityIdentifier, id.hasPrefix("drawer-row-"),
-               !id.hasPrefix("drawer-row-bg"), !id.hasPrefix("drawer-row-icon") { total += 1 }
-            for sub in view.subviews { total += countRows(sub) }
-            return total
+        sheet.tableView.layoutIfNeeded()
+        XCTAssertEqual(sheet.tableView.numberOfSections, 3)
+        XCTAssertEqual((0..<3).map { sheet.tableView.numberOfRows(inSection: $0) }, [3, 3, 1])
+        XCTAssertEqual(sheet.tableView.visibleCells.count, 7)
+        for section in 0..<3 {
+            for row in 0..<sheet.tableView.numberOfRows(inSection: section) {
+                let indexPath = IndexPath(row: row, section: section)
+                XCTAssertEqual(try visibleCell(sheet, at: indexPath).accessibilityIdentifier,
+                               "drawer-row-\(section)-\(row)")
+            }
         }
-        let rows = countRows(sheet.baseView)
-        XCTAssertEqual(rows, 7)
         XCTAssertLessThan(sheet.baseView.bounds.height, 600)
     }
 
@@ -233,18 +241,13 @@ final class PopoverDrawerSheetTests: XCTestCase {
         let (window, _, _) = try present(sheet)
         defer { sheet.dismissPopover(animated: false); window.isHidden = true }
 
-        func background(of identifier: String) throws -> UIView {
-            let row = try XCTUnwrap(cell(identifier, in: sheet.baseView))
-            func find(_ view: UIView) -> UIView? {
-                if view.accessibilityIdentifier == "drawer-row-bg" { return view }
-                for sub in view.subviews { if let hit = find(sub) { return hit } }
-                return nil
-            }
-            return try XCTUnwrap(find(row))
+        func background(at indexPath: IndexPath) throws -> UIView {
+            let row = try visibleCell(sheet, at: indexPath)
+            return try XCTUnwrap(identifiedView("drawer-row-bg", in: row))
         }
 
-        let first = try background(of: "drawer-row-0-0")
-        let last = try background(of: "drawer-row-0-1")
+        let first = try background(at: IndexPath(row: 0, section: 0))
+        let last = try background(at: IndexPath(row: 1, section: 0))
         // 分组列表配色：面板灰底、行白底（深色下分别是黑与 #1C1C1E）。
         XCTAssertEqual(sheet.configuration.appearance.backgroundColor, .systemGroupedBackground,
                        "默认面板为分组灰底")
@@ -256,7 +259,7 @@ final class PopoverDrawerSheetTests: XCTestCase {
         sheet.sheetConfig.cellBackgroundColor = .systemRed
         sheet.sheetConfig.cellCornerRadius = 4
         sheet.tableView.layoutIfNeeded()
-        let updated = try background(of: "drawer-row-0-0")
+        let updated = try background(at: IndexPath(row: 0, section: 0))
         XCTAssertEqual(updated.backgroundColor, .systemRed)
         XCTAssertEqual(updated.layer.cornerRadius, 4, accuracy: 0.1)
     }
@@ -298,7 +301,8 @@ final class PopoverDrawerSheetTests: XCTestCase {
         alert.configuration.showsBackdrop = true
         XCTAssertEqual(host.backdropDimmingView.alpha, 0.32, accuracy: 0.01)
 
-        let sheet = BoneActionSheetView(title: "操作", actions: [PopoverAction("分享")])
+        let sheet = BoneDrawerSheetView(title: "操作")
+        sheet.addButton(text: "分享")
         let (sheetWindow, _, sheetHost) = try present(sheet)
         defer { sheet.dismissPopover(animated: false); sheetWindow.isHidden = true }
         XCTAssertEqual(sheetHost.backdropDimmingView.alpha, 0, accuracy: 0.01,
@@ -319,34 +323,57 @@ final class PopoverDrawerSheetTests: XCTestCase {
         let (window, _, _) = try present(sheet)
         defer { sheet.dismissPopover(animated: false); window.isHidden = true }
 
-        // 直接向数据源要 cell 并给一个确定的尺寸，避免依赖 table 的可见布局时机。
-        func madeCell(row: Int) -> BoneDrawerSheetCell {
-            let dequeued = sheet.tableView(sheet.tableView, cellForRowAt: IndexPath(row: row, section: 0))
-            let cell = dequeued as! BoneDrawerSheetCell
-            cell.frame = CGRect(x: 0, y: 0, width: 390, height: sheet.sheetConfig.cellHeight)
-            // 单元测试里没有 run loop 的布局时机，直接跑一次布局拿到确定几何。
-            cell.layoutSubviews()
-            return cell
-        }
+        let withIcon = try visibleCell(sheet, at: IndexPath(row: 0, section: 0))
+        let withoutIcon = try visibleCell(sheet, at: IndexPath(row: 1, section: 0))
+        let icon = try XCTUnwrap(identifiedView("drawer-row-icon", in: withIcon))
+        let absentIcon = try XCTUnwrap(identifiedView("drawer-row-icon", in: withoutIcon))
+        let glyph = try XCTUnwrap(icon.subviews.compactMap { $0 as? UIImageView }.first)
 
-        // 复用队列会返回同一个 cell，先把有图标那行的结果读出来再取下一行。
-        let withIcon = madeCell(row: 0)
-        let iconHidden = withIcon.iconBox.isHidden
-        let iconSize = withIcon.iconBox.frame.size
-        let iconColor = withIcon.iconBox.backgroundColor
-        let iconRadius = withIcon.iconBox.layer.cornerRadius
-        let glyphWidth = withIcon.iconBox.subviews.first?.frame.width ?? 0
-        let withoutIcon = madeCell(row: 1)
-
-        XCTAssertFalse(iconHidden, "传了 icon 的行显示图标位")
-        XCTAssertTrue(withoutIcon.iconBox.isHidden, "没传 icon 的行不显示图标位")
-        XCTAssertEqual(iconSize.width, sheet.sheetConfig.cellIconSize, accuracy: 0.5)
-        XCTAssertEqual(iconSize.height, sheet.sheetConfig.cellIconSize, accuracy: 0.5)
-        XCTAssertEqual(iconColor, .systemYellow, "底板颜色来自 sheetConfig")
-        XCTAssertEqual(iconRadius, sheet.sheetConfig.cellIconCornerRadius, accuracy: 0.1)
-        XCTAssertEqual(glyphWidth, sheet.sheetConfig.cellIconSize * 0.58, accuracy: 1, "图标约底板 58%")
+        XCTAssertFalse(icon.isHidden, "传了 icon 的行显示图标位")
+        XCTAssertTrue(absentIcon.isHidden, "没传 icon 的行不显示图标位")
+        XCTAssertEqual(icon.bounds.width, sheet.sheetConfig.cellIconSize, accuracy: 0.5)
+        XCTAssertEqual(icon.bounds.height, sheet.sheetConfig.cellIconSize, accuracy: 0.5)
+        XCTAssertEqual(icon.backgroundColor, .systemYellow, "底板颜色来自 sheetConfig")
+        XCTAssertEqual(icon.layer.cornerRadius, sheet.sheetConfig.cellIconCornerRadius, accuracy: 0.1)
+        XCTAssertNotNil(glyph.image)
+        XCTAssertEqual(glyph.bounds.width, sheet.sheetConfig.cellIconSize * 0.58, accuracy: 1,
+                       "图标约底板 58%")
         XCTAssertEqual(sheet.sheetConfig.headerInset, 16, "表头左右留白默认 16")
         XCTAssertEqual(sheet.tableView.style, .grouped, "列表用 grouped 样式")
     }
 
+    /// 长列表只在 UITableView 内滚动，修改上限后立即重新测量。
+    @MainActor
+    func testLongOperationListScrollsInsideConfiguredMaximumHeight() throws {
+        let sheet = BoneDrawerSheetView(title: "项目操作")
+        for index in 0..<12 {
+            sheet.addButton(text: "操作 \(index)")
+        }
+        let (window, _, host) = try present(sheet)
+        defer { sheet.dismissPopover(animated: false); window.isHidden = true }
+        sheet.tableView.layoutIfNeeded()
+        XCTAssertEqual(sheet.sheetConfig.maximumListHeight, 500)
+        XCTAssertEqual(sheet.tableView.numberOfRows(inSection: 0), 12)
+        XCTAssertEqual(sheet.tableView.bounds.height, 500, accuracy: 1)
+        XCTAssertGreaterThan(sheet.tableView.contentSize.height, sheet.tableView.bounds.height)
+        XCTAssertTrue(sheet.tableView.isScrollEnabled)
+        XCTAssertFalse(sheet.configuration.scrollsOverflow, "外层不与内部列表争夺滚动")
+
+        let last = IndexPath(row: 11, section: 0)
+        sheet.tableView.scrollToRow(at: last, at: .bottom, animated: false)
+        sheet.tableView.layoutIfNeeded()
+        XCTAssertEqual(try visibleCell(sheet, at: last).accessibilityIdentifier, "drawer-row-0-11")
+
+        sheet.sheetConfig.maximumListHeight = 220
+        host.layoutIfNeeded()
+        sheet.tableView.layoutIfNeeded()
+        XCTAssertEqual(sheet.tableView.bounds.height, 220, accuracy: 1)
+        XCTAssertTrue(sheet.tableView.isScrollEnabled)
+
+        sheet.sheetConfig.maximumListHeight = 800
+        host.layoutIfNeeded()
+        sheet.tableView.layoutIfNeeded()
+        XCTAssertEqual(sheet.tableView.bounds.height, 12 * sheet.sheetConfig.cellHeight, accuracy: 1)
+        XCTAssertFalse(sheet.tableView.isScrollEnabled, "行全部放得下时关闭内部滚动")
+    }
 }

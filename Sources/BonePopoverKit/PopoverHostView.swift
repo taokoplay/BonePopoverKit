@@ -187,6 +187,9 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
         let previousFrame = panelFrame
         panelFrame = PopoverLayoutEngine.frame(in: context, layout: config.layout,
             contentSize: CGSize(width: width, height: contentHeight + grabberHeight))
+        let bottomInset = backgroundBottomInset(for: panelFrame, context: context, layout: config.layout)
+        panelFrame.size.height += bottomInset
+        surface.bottomContentInset = bottomInset
         let resizing = lastBounds != .zero && lastBounds != bounds
         let resume = (resizing || previousFrame != panelFrame) && animator != nil
         let completion = transitionCompletion
@@ -206,6 +209,20 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
         scrollView.isScrollEnabled = config.scrollsOverflow && height > scrollView.bounds.height + 1
         lastBounds = bounds
         if resume { transition(visible: targetVisible, animated: true, completion: completion ?? {}) }
+    }
+
+    /// 贴底面板把材质铺满底部安全区；内容几何仍使用安全区内的可用矩形。
+    private func backgroundBottomInset(for frame: CGRect, context: PopoverLayoutContext,
+                                       layout: PopoverLayout) -> CGFloat {
+        let safeBottom = context.bounds.maxY - context.safeAreaInsets.bottom
+        guard layout.placement == .bottom, layout.margins.bottom <= 0,
+              context.safeAreaInsets.bottom > 0, frame.width > 0, frame.height > 0,
+              abs(frame.maxY - safeBottom) < 0.5 else { return 0 }
+        let extensionFrame = CGRect(x: frame.minX, y: frame.maxY, width: frame.width,
+                                    height: max(0, context.bounds.maxY - frame.maxY))
+        // 键盘、铰链等区域即便位于安全区内，也不能被背景越过。
+        guard !context.excludedFrames.contains(where: { $0.intersects(extensionFrame) }) else { return 0 }
+        return extensionFrame.height
     }
 
     override func safeAreaInsetsDidChange() {

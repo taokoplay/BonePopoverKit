@@ -6,6 +6,12 @@ import UIKit
 final class PopoverSurfaceView: UIView {
     let contentContainer = UIView()
     let grabber = UIView()
+    /// 背景延伸到屏幕底边时，内容仍在底部安全区上沿结束。
+    var bottomContentInset: CGFloat = 0 {
+        didSet {
+            if bottomContentInset != oldValue { setNeedsLayout() }
+        }
+    }
     private let effectView = UIVisualEffectView()
     private let foregroundView = UIView()
     private var customBackgroundView: UIView?
@@ -70,7 +76,7 @@ final class PopoverSurfaceView: UIView {
         grabber.frame = CGRect(x: contentBounds.midX - 18, y: 7, width: 36, height: 5)
         let top: CGFloat = grabber.isHidden ? 0 : 20
         contentContainer.frame = CGRect(x: 0, y: top, width: contentBounds.width,
-                                        height: max(0, contentBounds.height - top))
+                                        height: max(0, contentBounds.height - top - bottomContentInset))
         layer.shadowPath = layer.shadowOpacity > 0
             ? UIBezierPath(roundedRect: bounds, byRoundingCorners: Self.rectCorners(from: cornerMask),
                            cornerRadii: CGSize(width: radius, height: radius)).cgPath : nil

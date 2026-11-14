@@ -152,11 +152,24 @@ open class BonePopoverView: UIViewController {
     }
 
     /// 页面内展示，覆盖范围为传入控制器的 view；不会创建独立 Window。
+    /// 传入导航或标签容器时，在其当前内容页内展示，不改变容器管理的页面列表。
     @discardableResult
     public func show(from presenter: UIViewController, animated: Bool = true) -> Bool {
         guard presenter !== self, presenter.viewIfLoaded?.window != nil,
+              let owner = Self.contentOwner(in: presenter),
               let token = reservePresentation() else { return false }
-        return mount(in: presenter, identifier: token, animated: animated)
+        return mount(in: owner, identifier: token, animated: animated)
+    }
+
+    /// 系统容器的直接子控制器就是它管理的页面；弹层应属于当前内容页。
+    private static func contentOwner(in presenter: UIViewController) -> UIViewController? {
+        if let navigation = presenter as? UINavigationController {
+            return navigation.visibleViewController.flatMap { contentOwner(in: $0) }
+        }
+        if let tabs = presenter as? UITabBarController {
+            return tabs.selectedViewController.flatMap { contentOwner(in: $0) }
+        }
+        return presenter
     }
 
     /// 在指定源窗口所属的 Scene 中创建独立弹窗 Window。

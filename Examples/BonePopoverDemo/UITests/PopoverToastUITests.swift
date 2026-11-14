@@ -7,10 +7,12 @@ final class PopoverToastUITests: XCTestCase {
         XCTAssertTrue(table.waitForExistence(timeout: 10))
         let row = app.cells["scene-\(index)"]
         for _ in 0..<6 {
-            if row.isHittable { break }
+            // 部分露出的 cell 也可能 isHittable，但默认点击点会落入底部结果栏。
+            if row.isHittable && table.frame.insetBy(dx: 0, dy: 8).contains(row.frame) { break }
             table.swipeUp()
         }
         XCTAssertTrue(row.isHittable)
+        XCTAssertTrue(table.frame.insetBy(dx: 0, dy: 8).contains(row.frame), "先把整行滚入列表可视区")
         row.tap()
         XCTAssertTrue(app.otherElements["popover-ready"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["toast-message"].exists)
@@ -99,5 +101,26 @@ final class PopoverToastUITests: XCTestCase {
         app.buttons["自动消失时间"].tap()
         app.buttons["1 秒"].tap()
         waitForDismissal(in: app)
+    }
+
+    /// 显示吐司时在首页从左往右滑，首页不能被当成可返回的临时页面而消失。
+    @MainActor
+    func testRightSwipeWithToastKeepsHomeVisible() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["BONE_TOAST_DEMO_DURATION"] = "10"
+        for scene in [15, 16, 17] {
+            app.launchArguments = ["--demo-home", "--demo-scene", String(scene)]
+            app.launch()
+            XCTAssertTrue(app.staticTexts["toast-message"].waitForExistence(timeout: 5))
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.55))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.55))
+            start.press(forDuration: 0.05, thenDragTo: end)
+            XCTAssertTrue(app.tables["demo-list"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.tables["demo-list"].isHittable, "右滑后首页仍可操作，不能黑屏")
+            XCTAssertTrue(app.buttons["interaction-demo"].isHittable)
+            capture("toast-right-swipe-\(scene)")
+            app.terminate()
+        }
     }
 }

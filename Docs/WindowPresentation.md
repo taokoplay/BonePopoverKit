@@ -6,7 +6,7 @@
 
 | API | 覆盖范围与选择方式 |
 | --- | --- |
-| `show(from: presenter, animated:)` | 页面模式，添加到 presenter.view，不创建 Window |
+| `show(from: presenter, animated:)` | 页面模式；导航/标签容器选择当前内容页的 view，不改变页面列表、不创建 Window |
 | `show(over: sourceWindow, animated:)` | 独立窗口，绑定源 Window 所属 Scene，推荐多 Window 业务使用 |
 | `show(in: scene, animated:)` | 独立窗口，明确指定 Scene，从该 Scene 找业务宿主 |
 | `show()` | 独立窗口，仅有一个前台活动 Scene 时自动选择上下文 |
@@ -63,7 +63,8 @@ func showWindowAlert(from presenter: UIViewController) {
 ```swift
 @MainActor
 func showNavigationPopover(over sourceWindow: UIWindow) {
-    let sheet = BoneActionSheetView(title: "项目设置", actions: [PopoverAction("关闭")])
+    let sheet = BoneDrawerSheetView(title: "项目设置")
+    sheet.addButton(text: "关闭")
     sheet.configuration.window.container = .navigation
     sheet.show(over: sourceWindow)
     // 在业务按钮事件中可调用：

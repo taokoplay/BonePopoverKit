@@ -62,6 +62,8 @@ public struct PopoverAppearance {
 
 public enum PopoverPlacement: Sendable {
     case bottom, center, top, leading, trailing
+    /// Attach to anchorRect, preferring the space below the source.
+    case anchored
 }
 
 public enum PopoverDimension: Sendable {
@@ -88,6 +90,11 @@ public struct PopoverLayout {
     public var regionPreference: PopoverRegionPreference = .automatic
     /// A source point selects the usable pane closest to the source.
     public var anchorPoint: CGPoint? = nil
+    /// Source rectangle in the presenting container's coordinates, used by .anchored.
+    /// A valid rectangle's midpoint takes precedence over anchorPoint when selecting a pane.
+    public var anchorRect: CGRect? = nil
+    /// Gap from the source; negative values become zero and nonfinite values use 8.
+    public var anchorSpacing: CGFloat = 8
     public var avoidsKeyboard: Bool = true
     public var avoidsReservedRegions: Bool = true
 
@@ -116,7 +123,7 @@ public struct PopoverConfiguration {
     /// This is independent of dismissOnBackdropTap, which applies to blocked taps.
     public var autoHideWhenPenetrated = false
     public var allowsDragToDismiss = true
-    /// Physical directions; .automatic follows placement (all four for center).
+    /// Physical directions; .automatic follows placement (all four for center/anchored).
     public var allowedSwipeDirections: PopoverSwipeDirection = .automatic
     /// Projected travel in points needed to dismiss; release velocity contributes
     /// 0.15 seconds of travel. A slow drag must cross this distance.
@@ -151,6 +158,34 @@ public struct PopoverConfiguration {
         value.layout.maximumWidth = 420
         value.animation = .scale
         value.allowsDragToDismiss = false
+        return value
+    }
+
+    public static var menu: Self {
+        var value = Self()
+        value.layout.placement = .anchored
+        value.layout.width = .fixed(260)
+        value.layout.maximumWidth = 320
+        value.layout.height = .content
+        value.layout.margins = UIEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
+        value.appearance.material = .automatic
+        value.appearance.backgroundColor = .secondarySystemBackground
+        value.appearance.cornerRadius = 14
+        value.appearance.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner,
+                                          .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        value.appearance.shadowOpacity = 0.16
+        value.appearance.shadowRadius = 16
+        value.appearance.shadowOffset = CGSize(width: 0, height: 6)
+        value.appearance.showsGrabber = false
+        value.showsBackdrop = false
+        value.allowsDragToDismiss = false
+        value.scrollsOverflow = true
+        value.animation = .scale(0.96, duration: 0.18, dampingRatio: 1)
+        value.contentStyle.contentInsets = .zero
+        value.contentStyle.titleFont = .systemFont(ofSize: 13, weight: .semibold)
+        value.contentStyle.titleColor = .secondaryLabel
+        value.contentStyle.titleAlignment = .natural
+        value.contentStyle.buttonFont = .systemFont(ofSize: 17)
         return value
     }
 

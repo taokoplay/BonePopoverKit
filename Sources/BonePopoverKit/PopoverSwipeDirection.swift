@@ -24,7 +24,7 @@ public struct PopoverSwipeDirection: OptionSet, Sendable {
             case .top: result.insert(.up)
             case .leading: result.insert(isRightToLeft ? .right : .left)
             case .trailing: result.insert(isRightToLeft ? .left : .right)
-            case .center: result.formUnion(.all)
+            case .center, .anchored: result.formUnion(.all)
             }
         }
         return result

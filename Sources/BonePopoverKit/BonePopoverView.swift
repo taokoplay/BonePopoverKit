@@ -108,6 +108,11 @@ open class BonePopoverView: UIViewController {
     /// SDK 会在配置或系统字号变化时调用；子类也应在构建完控件后主动调用一次。
     open func applyContentStyle() {}
 
+    /// 内置锚点组件在布局时将来源视图坐标转换到当前宿主，避免缓存屏幕坐标。
+    func resolvedPopoverLayout(in hostView: UIView) -> PopoverLayout {
+        configuration.layout
+    }
+
     open override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if isViewLoaded,

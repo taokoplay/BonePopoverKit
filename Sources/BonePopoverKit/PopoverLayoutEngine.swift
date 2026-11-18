@@ -28,13 +28,17 @@ public enum PopoverLayoutEngine {
             return CGRect(origin: safe.origin, size: .zero)
         }
         let largestArea = candidates.map { $0.width * $0.height }.max() ?? 0
-        // An explicit source point must remain eligible even in a smaller pane.
-        let viable = layout.anchorPoint == nil
+        var selectionLayout = layout
+        if case .anchored = layout.placement, let anchor = validAnchorRect(layout.anchorRect) {
+            selectionLayout.anchorPoint = CGPoint(x: anchor.midX, y: anchor.midY)
+        }
+        // A source point or rectangle must remain eligible even in a smaller pane.
+        let viable = selectionLayout.anchorPoint == nil
             ? candidates.filter { $0.width * $0.height >= largestArea * 0.45 }
             : candidates
         let selected = viable.max { lhs, rhs in
-            score(lhs, context: context, layout: layout, largestArea: largestArea)
-                < score(rhs, context: context, layout: layout, largestArea: largestArea)
+            score(lhs, context: context, layout: selectionLayout, largestArea: largestArea)
+                < score(rhs, context: context, layout: selectionLayout, largestArea: largestArea)
         } ?? safe
         return inset(selected, by: layout.margins)
     }
@@ -44,7 +48,7 @@ public enum PopoverLayoutEngine {
         let area = availableFrame(in: context, layout: layout)
         let width = dimension(layout.width, content: contentSize.width,
                               available: area.width, maximum: layout.maximumWidth)
-        let height = dimension(layout.height, content: contentSize.height,
+        var height = dimension(layout.height, content: contentSize.height,
                                available: area.height, maximum: layout.maximumHeight)
         var x = area.midX - width / 2
         var y = area.midY - height / 2
@@ -54,6 +58,20 @@ public enum PopoverLayoutEngine {
         case .center: break
         case .leading: x = context.isRightToLeft ? area.maxX - width : area.minX
         case .trailing: x = context.isRightToLeft ? area.minX : area.maxX - width
+        case .anchored:
+            guard let anchor = validAnchorRect(layout.anchorRect) else { break }
+            let spacing = layout.anchorSpacing.isFinite ? max(0, layout.anchorSpacing) : 8
+            let belowY = min(area.maxY, max(area.minY, anchor.maxY + spacing))
+            let aboveY = min(area.maxY, max(area.minY, anchor.minY - spacing))
+            let below = max(0, area.maxY - belowY)
+            let above = max(0, aboveY - area.minY)
+            // A source spanning the area leaves no side to use; retain visible centered content.
+            guard below > 0 || above > 0 else { break }
+            let placesBelow = height <= below || (height > above && below >= above)
+            height = min(height, placesBelow ? below : above)
+            y = placesBelow ? belowY : aboveY - height
+            let alignedX = context.isRightToLeft ? anchor.maxX - width : anchor.minX
+            x = min(area.maxX - width, max(area.minX, alignedX))
         }
         return CGRect(x: x, y: y, width: width, height: height)
     }
@@ -68,6 +86,17 @@ public enum PopoverLayoutEngine {
         case .fill: requested = available
         }
         return max(0, min(available, maximum, requested.isFinite ? requested : 0))
+    }
+
+    private static func validAnchorRect(_ value: CGRect?) -> CGRect? {
+        guard let value, !value.isNull, !value.isInfinite,
+              value.origin.x.isFinite, value.origin.y.isFinite,
+              value.size.width.isFinite, value.size.height.isFinite else { return nil }
+        let rect = value.standardized
+        guard rect.minX.isFinite, rect.maxX.isFinite, rect.midX.isFinite,
+              rect.minY.isFinite, rect.maxY.isFinite, rect.midY.isFinite else { return nil }
+        // Empty rectangles are valid point sources; do not reject them with isEmpty.
+        return rect
     }
 
     private static func inset(_ rect: CGRect, by edges: UIEdgeInsets) -> CGRect {

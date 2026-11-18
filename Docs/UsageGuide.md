@@ -8,14 +8,17 @@ BonePopoverKit 是基于 UIKit 的独立弹窗组件，通过 Swift Package 集�
 
 底部操作列表当前统一使用 `BoneDrawerSheetView`，旧 `BoneActionSheetView` / `PopoverAction` 已删除。升级已有调用请先看 [操作列表迁移表](Migration.md#action-sheet-migration)，`v0.1.0` 的功能调整与修复见 [更新日志](../CHANGELOG.md#v0.1.0)。
 
+`BoneMenuView`、`.menu` 配置与 `.anchored` 位置为当前工作区的未发布新增能力，尚不包含在 `v0.1.0` 标签中。
+
 ## 目录
 
 - [1. 环境与安装](#installation)
 - [2. 快速开始与展示宿主](#quick-start)
-- [3. 内置确认框、输入框、操作列表与 Toast](#presets)
+- [3. 内置确认框、输入框、操作列表、Toast 与菜单](#presets)
   - [3.3 操作列表](#action-sheet)
   - [3.4 选择、排序与固定高度滚动](#sheet-variants)
   - [3.5 Toast 提示](#toast)
+  - [3.6 按钮旁菜单（未发布）](#menu)
 - [4. 字体、对齐与内容间距](#titles)
 - [5. 外观与液态玻璃](#appearance)
 - [6. 弹窗位置与尺寸](#layout)
@@ -113,7 +116,7 @@ popover.hidden {
 
 <a id="presets"></a>
 
-## 3. 内置确认框、输入框、操作列表与 Toast
+## 3. 内置确认框、输入框、操作列表、Toast 与菜单
 
 ### 3.1 确认框
 
@@ -345,6 +348,77 @@ loading.duration = 2
 
 沿用全部展示入口：`show(from:)`、`show(over:)`、`show(in:)`、`show()`；返回 Bool，展示失败不启动计时。无遮罩和穿透是 Toast 初始化时的默认配置，整份替换 `configuration` 会覆盖这些设置。默认穿透时使用 VoiceOver announcement 播报类型与提示文字，不切走当前辅助功能焦点。
 
+<a id="menu"></a>
+
+### 3.6 按钮旁菜单（未发布）
+
+`BoneMenuView` 用于从按钮或局部矩形附近展开紧凑操作。默认优先放在来源下方，下方放不下时尝试上方；两边都放不下时取较大一侧并限高，菜单内部滚动。横向默认对齐来源 leading 边，RTL 对齐相反一边，接近屏幕边缘时收回可用区内；键盘、安全区与折叠保留区域继续生效。
+
+```swift
+let menu = BoneMenuView(anchorView: moreButton)
+menu.addItem(title: "分享", icon: UIImage(systemName: "square.and.arrow.up"),
+             inSection: "项目操作") {
+    print("菜单关闭后分享")
+}
+menu.addItem(title: "朗读", icon: UIImage(systemName: "speaker.wave.2"),
+             isEnabled: false, inSection: "项目操作")
+menu.addItem(title: "删除", icon: UIImage(systemName: "trash"), style: .destructive,
+             inSection: "项目操作", accessibilityIdentifier: "menu-delete") {
+    print("菜单关闭后删除")
+}
+menu.show(from: presenter)
+```
+
+`moreButton` 必须已在展示宿主的同一窗口或同一 Scene 内。组件在每次宿主布局时把来源视图坐标转换到当前宿主，也支持 `show(over: sourceWindow)` 独立 Window 展示。旋转、窗口尺寸变化时重新定位；业务主动移动来源控件后调用 `invalidatePopoverLayout()`。来源视图被弱引用，显示期间临时脱离窗口时保留最后一次有效位置，关闭后清除位置缓存。
+
+只需从局部矩形展开时使用 `BoneMenuView(anchorRect: localRect, in: sourceView)`，矩形单位为来源视图的局部坐标。显示期间调用 `updateAnchorRect(newRect)` 更新；传入 `nil` 恢复使用来源视图的当前 `bounds`。
+
+| `addItem` 参数 | 默认值 | 行为 |
+| --- | --- | --- |
+| `title` | 必填 | 支持多行文字，行高按实际字体测量 |
+| `icon` | `nil` | 最大 22 × 22 点；原色图保留，其余图像按行颜色渲染 |
+| `style` | `.default` | `.highlighted` 使用菜单 tint，`.destructive` 使用系统红色 |
+| `isEnabled` | `true` | false 使用弱化文字、阻止点击及回调，并提供禁用辅助功能状态 |
+| `isSelected` | `false` | 展示 checkmark 和选中辅助功能状态 |
+| `inSection` | `nil` | 同名标题合并；nil 和空字符串为同一无标题组，保留首次出现的分组顺序 |
+| `dismissesPopover` | `true` | 默认先关闭再回调；false 立即回调并保持菜单 |
+| `accessibilityIdentifier` | `nil` | 默认 `menu-item-分区-行号`，也可指定业务标识 |
+| `callback` | `nil` | 普通与危险操作共用相同的回调时机 |
+
+`addItem` 返回 `Void`。选中态是宿主提供的显示状态，单选或多选规则由业务决定。即时切换使用 `dismissesPopover: false`，通过零基 `IndexPath` 更新；更新不存在的行会被忽略：
+
+```swift
+var selected = true
+let menu = BoneMenuView(anchorView: moreButton)
+menu.addItem(title: "收藏", icon: UIImage(systemName: "star"), isSelected: selected,
+             dismissesPopover: false) { [weak menu] in
+    selected.toggle()
+    menu?.setItemSelected(selected, at: IndexPath(row: 0, section: 0))
+}
+menu.addItem(title: "朗读", isEnabled: false)
+menu.show(from: presenter)
+// 业务状态就绪时可启用第二项：
+menu.setItemEnabled(true, at: IndexPath(row: 1, section: 0))
+```
+
+| 菜单默认配置 | 值 |
+| --- | --- |
+| 位置与来源间距 | `.anchored`，8 点 |
+| 宽度 / 最大宽度 | `.fixed(260)` / 320 点；空间不足时缩小 |
+| 高度 / 外边距 | `.content` / 四边 12 点 |
+| 材质 / 圆角 | `.automatic` / 四角 14 点 |
+| 自定义阴影 | opacity 0.16、radius 16、offset `(0, 6)`；原生玻璃使用系统阴影 |
+| 遮罩 / 外部点击 | 无视觉压暗，拦截外部点击并关闭 |
+| 抓手 / 滑动关闭 | 均关闭 |
+| 动画 | `.scale(0.96, duration: 0.18, dampingRatio: 1)` |
+| 行字体 / 行内边距 | 17 点系统字体；上下 12、leading/trailing 各 16 点；最小行高 48 点 |
+| 分组标题 | 13 点 semibold、secondaryLabel、natural 对齐；最小高度 28 点 |
+| 滚动 | 组件初始化时 `scrollsOverflow = false`，由内部表格负责限高滚动 |
+
+菜单行使用 `configuration.contentStyle.buttonFont` 和 `buttonContentInsets`；分组标题使用 `titleFont`、`titleColor` 和 `titleAlignment`。默认启用 Dynamic Type，字号变大或文字换行会提高行高。材质、外部尺寸与间距分别通过 `appearance`、`layout` 修改。泛用 `.menu` 预设本身仍允许外层溢出滚动；整份替换组件的 `configuration` 时应继续设置 `scrollsOverflow = false`，保持内部表格滚动。
+
+自定义内容也可选择 `.menu` 配置及 `.anchored` 位置，直接设置 `layout.anchorRect`，坐标必须属于实际展示宿主。有效来源矩形的中点优先于 `anchorPoint` 用于选区，允许零尺寸的点锚点。无效或缺少来源矩形时回退到选定可用区的居中位置。
+
 <a id="titles"></a>
 
 ## 4. 字体、对齐与内容间距
@@ -383,7 +457,7 @@ alert.configuration.contentStyle.contentToButtonsSpacing = 24
 | --- | --- | --- | --- |
 | `titleFont` | 标题字体 | `.boldSystemFont(ofSize: 18)` | Alert 标题基础字体；操作列表默认 17 点 semibold。 |
 | `messageFont` | 正文字体 | `.systemFont(ofSize: 17)` | 正文和说明文字的基础字体；操作列表默认 14 点。 |
-| `buttonFont` | 按钮字体 | `.systemFont(ofSize: 17)` | Alert 确认、取消按钮字体；操作列表行使用 `sheetConfig.fontSize`。 |
+| `buttonFont` | 按钮字体 | `.systemFont(ofSize: 17)` | Alert 确认、取消按钮及菜单行字体；底部操作列表行使用 `sheetConfig.fontSize`。 |
 | `inputFont` | 输入字体 | `.systemFont(ofSize: 17)` | 单字段输入框的基础字体。 |
 | `titleColor` | 标题颜色 | `.label` | 标题文字颜色，支持系统深浅色。 |
 | `messageColor` | 正文颜色 | `.secondaryLabel` | 正文文字颜色，支持系统深浅色。 |
@@ -393,7 +467,7 @@ alert.configuration.contentStyle.contentToButtonsSpacing = 24
 | `titleToContentSpacing` | 标题到内容间距 | 14 | 标题到正文或输入框的距离；操作列表无说明时到列表的距离使用 `sheetConfig.listTopSpacing`。 |
 | `contentToButtonsSpacing` | 内容到按钮间距 | 14 | Alert 正文或输入框到按钮区域的距离。 |
 | `buttonSpacing` | 按钮间距 | 12 | Alert 横排、竖排按钮之间的距离；不控制表格行间距。 |
-| `buttonContentInsets` | 按钮内边距 | 上下 12，leading/trailing 各 16 | Alert 按钮文字和图标周围的留白。 |
+| `buttonContentInsets` | 按钮内边距 | 上下 12，leading/trailing 各 16 | Alert 按钮及菜单行文字和图标周围的留白。 |
 | `closeButtonImage` | 操作列表关闭按钮图标 | `nil` | `nil` 使用 12 点 medium 的 `chevron.down`；替换后仍沿用标题色。 |
 | `closeButtonSize` | 操作列表关闭按钮边长 | 40 点 | 方形命中区；非有限或非正值回退 40 点。 |
 | `adjustsFontForContentSizeCategory` | 动态字号 | `true` | 随系统文字大小缩放基础字体；设为 `false` 使用固定字号。 |
@@ -503,6 +577,7 @@ popover.show(from: presenter)
 | `.centerDialog` | 居中 | 420 点 | 缩放 | 关 |
 | `.topBanner` | 顶部 | 560 点 | 顶部滑入 | 开，自动向上 |
 | `.sidePanel` | trailing 侧，高度填满 | 400 点 | trailing 侧滑入 | 开，自动向外 |
+| `.menu`（未发布） | 来源控件下方，空间不足翻上 | 320 点，默认固定 260 点 | 缩放 0.96（0.18 秒） | 关 |
 
 通用 `.bottomSheet` 使用纯色表面、圆角 16 点仅顶部两角、贴底无外部留白，宽度取所在可用区并受 560 点上限约束，默认不显示背景遮罩和抓手，也不叠加阴影，内置标题默认居中。`BoneDrawerSheetView` 在此基础上使用分组面板底色并显示抓手；其标题与两侧按钮布局由 `sheetConfig.headerInset` 和 `titleAlignment` 控制。`.topBanner` 的背景遮罩透明度默认是 0.12，不会自动消失；`.centerDialog` 和 `.sidePanel` 默认 0.32。
 
@@ -518,7 +593,7 @@ popover.show(from: presenter)
 
 | 字段 | 名称 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `placement` | 面板位置 | `.bottom` | 支持底部、居中、顶部、leading 侧、trailing 侧；两侧位置跟随 RTL。 |
+| `placement` | 面板位置 | `.bottom` | 支持底部、居中、顶部、leading、trailing 与 `.anchored` 来源旁展开；水平方向跟随 RTL。 |
 | `width` | 宽度规则 | `.fill` | 使用内容、固定值、可用宽度比例或填满规则。 |
 | `height` | 高度规则 | `.content` | 使用内容、固定值、可用高度比例或填满规则。 |
 | `maximumWidth` | 最大宽度 | 560 | 限制面板宽度；实际可用空间更小时继续缩小。 |
@@ -526,6 +601,8 @@ popover.show(from: presenter)
 | `margins` | 面板外边距 | 四边各 12 | 安全区和排除区域之外，面板与可用区域边缘的最小留白。 |
 | `regionPreference` | 可用区域偏好 | `.automatic` | 支持自动、最大区域、leading、trailing、顶部或底部偏好。 |
 | `anchorPoint` | 关联位置 | `nil` | 提供宿主坐标中的触发点，优先选择与该点相关的可用区域。 |
+| `anchorRect` | 来源矩形 | `nil` | `.anchored` 使用的宿主局部矩形；有效矩形中点优先于 anchorPoint 用于选区。 |
+| `anchorSpacing` | 来源间距 | 8 | 菜单与来源矩形的间隔；负值按 0 处理，非有限值回退 8。 |
 | `avoidsKeyboard` | 避让键盘 | `true` | 从布局空间中排除有效的键盘区域。 |
 | `avoidsReservedRegions` | 避让系统保留区域 | `true` | 避让折叠分隔、摄像头遮挡等活动区域；支持自定义区域注入。 |
 
@@ -982,10 +1059,11 @@ App 也需要使用支持该设备的新 SDK 构建。当前已有 Duo 模拟器
 
 ### 14.1 Demo 怎么运行
 
-打开 `Examples/BonePopoverDemo/BonePopoverDemo.xcodeproj`，选择可用 iPhone / iPad / Duo 目标运行。目录是相对于包根目录，共 23 个场景。
+打开 `Examples/BonePopoverDemo/BonePopoverDemo.xcodeproj`，选择可用 iPhone / iPad / Duo 目标运行。目录是相对于包根目录，共 24 个场景（编号 0～23）。
 
 - 主页面：先选外观、动画，再进入确认、输入、操作列表等场景；默认操作列表（场景 2）使用 `BoneDrawerSheetView`。
 - “底部操作列表变体”：原分组选择场景 18 与场景 20/21/22 展示同一组件的单选、多选、同分区拖动和固定高度滚动。
+- “按钮旁菜单”（场景 23）：顶部按钮向下展开、底部按钮向上翻转；收藏即时切换、禁用项、分享/删除、材质切换及 24 项长菜单。可用 `--demo-home --demo-scene 23` 直接进入。
 - “标题对齐”：选择左、中、右对齐后打开内置弹窗。
 - “自定义字体与间距”：预览 Alert 的字体、内边距与段落/按钮间距。
 - “即时调整内容样式”（场景 13）：在 `BoneDrawerSheetView` 内即时调整行字体、行高和表头/列表间距，再切回默认值。
@@ -1028,8 +1106,8 @@ xcodegen generate --spec Examples/BonePopoverDemo/project.yml
 
 ### 14.4 已验证到什么程度
 
-最近一次实现变更在 iPhone Duo / iOS 27.1 完成核心回归 **108/108**，在 iPhone 17 Pro / iOS 26 完成 Demo UI **14/14**；表头修正后的布局与玻璃遮罩定向复测 **5/5**。定向复测与前一轮存在重叠，不能相加为 19 个独立 UI 用例；排序变体只验证分区打开与行展示，未执行真实拖动手势。详细范围与真机安装状态见 [当前实现验证记录](Validation.md#unified-operation-list)。
+新增菜单后的最近验证：iPhone Duo / iOS 27.1 核心回归 **130/130**，iPhone 17 Pro / iOS 26 Demo UI 定向回归 **8/8**（其中菜单 **4/4**），菜单独立 Window 托管测试 **1/1**。菜单 UI 包含真实点击、上下翻转、禁用防护、保持打开、外部关闭和滑动到末项；历史排序变体仍未执行真实拖动手势。详细执行范围与截图见 [菜单验证记录](Validation.md#menu)。
 
-较早阶段的 iOS 15 部署目标 / Swift 6 严格类型检查、文档示例编译，以及 iPad 窗口托管测试按执行阶段保留在 [验证记录](Validation.md) 中；本次文档整理未重跑 SDK / UI 测试，也未重新编译整本文档中的示例。
+本轮 Swift 6 / iOS 15 部署目标的 SDK 模块及菜单公开 API 外部调用编译通过，真机 Demo 已完成新版构建、安装和启动；点击与滚动自动化在模拟器执行。本轮没有重编译整本文档中的全部历史示例。较早阶段的 iPad 托管测试与其他检查按阶段保留在 [验证记录](Validation.md) 中。
 
 这些记录不表示所有系统版本和实体设备都完成验收。Duo 模拟器支持第二 Scene 激活，但系统拒绝主动销毁，相关阶段明确跳过，不能代替 iPad 的销毁隔离结果。iOS 15 没有实际运行验证；实体 Duo 全姿态、全部 iPadOS 窄分屏组合和完整辅助功能人工验收尚未完成。此前 iOS 27.1 连续输入后点击问题已纳入回归，最近记录未复现，不再列为当前阻塞；历史根因仍未获证明。原组件分布见 [项目清单](Inventory.md)。

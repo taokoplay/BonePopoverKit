@@ -53,7 +53,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 }
 
 final class DemoViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
-    private let scenes = ["居中确认框", "输入框与键盘", "底部操作列表", "顶部通知", "侧边面板", "长内容滚动", "注入竖向折叠", "注入横向折叠", "自定义 Alert 尺寸", "Alert 长内容上限", "Alert 竖排按钮", "Alert 窄空间", "自定义字体与间距", "即时调整内容样式", "独立 Window 与多 Scene", "Toast 顶部长条", "Toast 底部长条", "Toast 中间方块", "操作列表：分组单选与多选", "玻璃遮罩", "操作列表：单组单选", "操作列表：增加拖动分区", "操作列表：固定高度滚动"]
+    private let scenes = ["居中确认框", "输入框与键盘", "底部操作列表", "顶部通知", "侧边面板", "长内容滚动", "注入竖向折叠", "注入横向折叠", "自定义 Alert 尺寸", "Alert 长内容上限", "Alert 竖排按钮", "Alert 窄空间", "自定义字体与间距", "即时调整内容样式", "独立 Window 与多 Scene", "Toast 顶部长条", "Toast 底部长条", "Toast 中间方块", "操作列表：分组单选与多选", "玻璃遮罩", "操作列表：单组单选", "操作列表：增加拖动分区", "操作列表：固定高度滚动", "按钮旁菜单"]
     /// 每个场景一句话说明，直接告诉使用者这里该看什么。
     private let sceneDetails = [
         "标题、正文、确认/取消，可调对齐与按钮排列",
@@ -78,7 +78,8 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         "玻璃模糊遮罩：透明度与虚化各自可调",
         "只有一个单选分区，右上“确定”提交",
         "单选 + 拖动排序两个分区，拖完再提交",
-        "面板高度固定，行数超出时列表内部滚动"
+        "面板高度固定，行数超出时列表内部滚动",
+        "跟随来源控件、自动翻转，选中、禁用与长菜单"
     ]
     private let sceneIcons = [
         "rectangle.center.inset.filled", "keyboard", "list.bullet.rectangle",
@@ -88,11 +89,11 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         "textformat.size", "slider.horizontal.3", "macwindow.on.rectangle",
         "rectangle.topthird.inset.filled", "rectangle.bottomthird.inset.filled", "square.inset.filled",
         "list.bullet.below.rectangle", "aqi.medium",
-        "checkmark.circle", "line.3.horizontal", "arrow.up.and.down.text.horizontal"
+        "checkmark.circle", "line.3.horizontal", "arrow.up.and.down.text.horizontal", "ellipsis.circle"
     ]
     /// 场景分组；scene-N 编号保持不变，只调整展示顺序。
     private let groups: [(title: String, indices: [Int])] = [
-        ("常用弹窗", [0, 1, 2, 3, 4]),
+        ("常用弹窗", [0, 1, 2, 23, 3, 4]),
         ("布局与保留区域", [5, 6, 7, 8, 9, 10, 11]),
         ("内容样式", [12, 13, 19]),
         ("底部操作列表", [18, 20, 21, 22]),
@@ -379,6 +380,10 @@ final class DemoViewController: UIViewController, UITableViewDataSource, UITable
         }
         if index == 14 {
             navigationController?.pushViewController(WindowDemoViewController(), animated: true)
+            return
+        }
+        if index == 23 {
+            navigationController?.pushViewController(MenuDemoViewController(), animated: true)
             return
         }
         let popover: BonePopoverView

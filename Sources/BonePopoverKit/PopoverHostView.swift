@@ -159,11 +159,12 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
         super.layoutSubviews()
         guard !isInvalidated, let popover else { return }
         let config = popover.configuration
+        let layout = popover.resolvedPopoverLayout(in: self)
         var exclusions = reservedFrames
-        if config.layout.avoidsKeyboard, let keyboardScreenFrame, let window {
+        if layout.avoidsKeyboard, let keyboardScreenFrame, let window {
             exclusions.append(convert(window.convert(keyboardScreenFrame, from: window.screen.coordinateSpace), from: window))
         }
-        if config.layout.avoidsKeyboard, popover.windowSession == nil {
+        if layout.avoidsKeyboard, popover.windowSession == nil {
             let keyboard = keyboardLayoutGuide.layoutFrame
             if keyboard.height > safeAreaInsets.bottom + 1 {
                 exclusions.append(keyboard)
@@ -172,22 +173,22 @@ final class PopoverHostView: UIView, UIGestureRecognizerDelegate {
         let context = PopoverLayoutContext(bounds: bounds, safeAreaInsets: safeAreaInsets,
                                            excludedFrames: exclusions,
                                            isRightToLeft: effectiveUserInterfaceLayoutDirection == .rightToLeft)
-        let available = PopoverLayoutEngine.availableFrame(in: context, layout: config.layout)
-        var width = PopoverLayoutEngine.dimension(config.layout.width,
+        let available = PopoverLayoutEngine.availableFrame(in: context, layout: layout)
+        var width = PopoverLayoutEngine.dimension(layout.width,
             content: popover.preferredContentSize.width > 0 ? popover.preferredContentSize.width : available.width,
-            available: available.width, maximum: config.layout.maximumWidth)
+            available: available.width, maximum: layout.maximumWidth)
         let grabberHeight: CGFloat = config.appearance.showsGrabber ? 20 : 0
         var measured = popover.preferredPopoverSize(fitting: CGSize(width: width, height: max(0, available.height - grabberHeight)))
-        if case .content = config.layout.width {
+        if case .content = layout.width {
             width = PopoverLayoutEngine.dimension(.content, content: measured.width,
-                available: available.width, maximum: config.layout.maximumWidth)
+                available: available.width, maximum: layout.maximumWidth)
             measured = popover.preferredPopoverSize(fitting: CGSize(width: width, height: max(0, available.height - grabberHeight)))
         }
         let contentHeight = measured.height.isFinite ? max(0, measured.height) : 300
         let previousFrame = panelFrame
-        panelFrame = PopoverLayoutEngine.frame(in: context, layout: config.layout,
+        panelFrame = PopoverLayoutEngine.frame(in: context, layout: layout,
             contentSize: CGSize(width: width, height: contentHeight + grabberHeight))
-        let bottomInset = backgroundBottomInset(for: panelFrame, context: context, layout: config.layout)
+        let bottomInset = backgroundBottomInset(for: panelFrame, context: context, layout: layout)
         panelFrame.size.height += bottomInset
         surface.bottomContentInset = bottomInset
         let resizing = lastBounds != .zero && lastBounds != bounds

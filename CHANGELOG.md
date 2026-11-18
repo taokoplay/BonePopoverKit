@@ -6,7 +6,13 @@
 
 ## 未发布
 
-暂无新增变更。
+- 新增 `BoneMenuView` 按钮旁菜单：图标、同名分组、选中态、禁用项、强调色和危险操作；默认先关闭再回调，也可保持菜单即时更新状态。
+- 新增 `.menu` 配置、`.anchored` 位置与 `anchorRect` / `anchorSpacing`。优先向下、空间不足翻上，横向跟随 RTL，并避让安全区、键盘和折叠保留区域；长菜单内部滚动。
+- 菜单来源支持整个视图或局部矩形，在宿主布局时重新转换坐标，可用于页面和同一 Scene 的独立 Window。行字体和内边距使用 `contentStyle`，支持 Dynamic Type 与多行文字。
+- Demo 新增场景 23“按钮旁菜单”，提供顶部/底部来源、收藏即时切换、禁用项、分享/删除、材质切换和 24 项长菜单。
+- `PopoverPlacement` 新增 `.anchored`；业务若穷举该枚举，需要在 switch 中处理新位置。
+
+上述菜单 API 尚未发布，不包含在 `v0.1.0` 标签中。使用方式见 [菜单说明](Docs/UsageGuide.md#menu)，执行结果见 [菜单验证记录](Docs/Validation.md#menu)。
 
 <a id="v0.1.0"></a>
 

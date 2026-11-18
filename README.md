@@ -1,10 +1,12 @@
 # BonePopoverKit
 
-BonePopoverKit 是面向 iOS 15+ 的 UIKit 弹窗组件，通过 Swift Package 集成，无第三方依赖。提供确认框、输入框、基于 UITableView 的底部操作列表、Toast 和自定义内容，支持页面内展示、独立 Window、导航、液态玻璃、动画与触摸穿透。
+BonePopoverKit 是面向 iOS 15+ 的 UIKit 弹窗组件，通过 Swift Package 集成，无第三方依赖。提供确认框、输入框、基于 UITableView 的底部操作列表、按钮旁菜单、Toast 和自定义内容，支持页面内展示、独立 Window、导航、液态玻璃、动画与触摸穿透。
 
 内容样式、材质外观、布局、动画和关闭交互分别配置，可在显示期间调整。通过可继承的 `BonePopoverView` 和内容容器 `baseView` 构建业务弹窗，组件负责展示、布局和关闭生命周期。
 
 完整接入、参数和示例见 [使用说明](Docs/UsageGuide.md)，`v0.1.0` 的功能调整与升级影响见 [更新日志](CHANGELOG.md#v0.1.0)。
+
+当前工作区新增的 `BoneMenuView` 和 `.menu` 预设尚未发布，不包含在 `v0.1.0` 标签中。菜单接入方式见 [按钮旁菜单](Docs/UsageGuide.md#menu)。
 
 | 文档 | 内容 |
 | --- | --- |
@@ -13,7 +15,7 @@ BonePopoverKit 是面向 iOS 15+ 的 UIKit 弹窗组件，通过 Swift Package �
 | [迁移指南](Docs/Migration.md#action-sheet-migration) | 旧操作列表 API 替换及已有项目接入 |
 | [窗口说明](Docs/WindowPresentation.md) | 页面 / Window 展示范围、导航与 Scene |
 | [阅读器对照](Docs/ReaderParity.md) | 阅读器接口、默认值与适配边界 |
-| [验证记录](Docs/Validation.md#unified-operation-list) | 最近实现验证结果、历史证据与未验收范围 |
+| [验证记录](Docs/Validation.md#menu) | 最近实现验证结果、历史证据与未验收范围 |
 
 ## 安装
 
@@ -105,6 +107,23 @@ sheet.show(from: self)
 
 内置文案由各组件提供入口：`alert.confirmTitle` / `alert.cancelTitle`（默认“确认”“取消”）、`sheet.confirmTitle`（默认“确定”）、`sheet.closeAccessibilityLabel`（默认“关闭”）、`toast.typeDescriptions`（默认“成功”“失败”“提示”“加载中”）、`popover.backdropAccessibilityLabel`（默认 `NSLocalizedString("Dismiss")`）。主题与动画同样可选：`configuration.interfaceStyle` 默认 `.unspecified` 跟随宿主，设为 `.light` / `.dark` 可固定弹层外观；`PopoverAnimation.scale(0.8)` 可调整缩放幅度，`.scale` 仍是 0.92。与阅读器旧基类的逐项对照见 [阅读器对照](Docs/ReaderParity.md)。
 
+## 按钮旁菜单（未发布）
+
+`BoneMenuView` 从来源按钮附近展开，支持图标、分组、选中态、禁用项与危险操作。默认宽 260 点、最大宽 320 点、四角 14 点、来源间距 8 点；优先向下，空间不足时翻到上方，长菜单内部滚动。默认无背景压暗，点外部关闭并拦截该次点击。
+
+```swift
+let menu = BoneMenuView(anchorView: moreButton)
+menu.addItem(title: "分享", icon: UIImage(systemName: "square.and.arrow.up")) {
+    print("已选择分享") // 关闭完成后执行
+}
+menu.addItem(title: "收藏", icon: UIImage(systemName: "star"), isSelected: true)
+menu.addItem(title: "朗读", isEnabled: false)
+menu.addItem(title: "删除", icon: UIImage(systemName: "trash"), style: .destructive)
+menu.show(from: self)
+```
+
+通过 `inSection:` 按标题分组；`dismissesPopover: false` 立即回调并保持菜单打开，配合 `setItemSelected(_:at:)` / `setItemEnabled(_:at:)` 更新状态。行字体和内边距使用 `contentStyle.buttonFont` / `buttonContentInsets`，支持 Dynamic Type。来源坐标在布局时转换；局部矩形、独立 Window 和完整默认值见 [菜单说明](Docs/UsageGuide.md#menu)。Demo 场景 23 可体验向下展开、底部翻转和长菜单。
+
 ## Toast 提示
 
 `BoneToastView` 支持顶部长条、底部长条和中间方块，以及成功、失败、提示、加载中四种类型。四种类型均默认停留 **2 秒**后自动关闭，无遮罩，允许继续操作底层页面。按需选择一种用法：
@@ -144,7 +163,7 @@ BoneToastView(message: "正在加载", type: .loading, style: .center).show(from
 | --- | --- | --- | --- |
 | `titleFont` | 标题字体 | `.boldSystemFont(ofSize: 18)` | 确认框和输入框的标题基础字体；操作列表默认 17 点 semibold。 |
 | `messageFont` | 正文字体 | `.systemFont(ofSize: 17)` | 正文和说明文字的基础字体；操作列表默认 14 点。 |
-| `buttonFont` | 按钮字体 | `.systemFont(ofSize: 17)` | Alert 确认、取消按钮的基础字体；操作列表行字体使用 `sheetConfig.fontSize`。 |
+| `buttonFont` | 按钮字体 | `.systemFont(ofSize: 17)` | Alert 确认、取消按钮及菜单行的基础字体；底部操作列表行字体使用 `sheetConfig.fontSize`。 |
 | `inputFont` | 输入字体 | `.systemFont(ofSize: 17)` | 单字段输入框的基础字体。 |
 | `titleColor` | 标题颜色 | `.label` | 标题文字颜色，支持系统深浅色。 |
 | `messageColor` | 正文颜色 | `.secondaryLabel` | 正文文字颜色，支持系统深浅色。 |
@@ -154,7 +173,7 @@ BoneToastView(message: "正在加载", type: .loading, style: .center).show(from
 | `titleToContentSpacing` | 标题到内容间距 | 14 | Alert 标题到正文或输入框的距离；操作列表有说明时控制标题行底部到说明的间距，无说明时改用 `sheetConfig.listTopSpacing`。 |
 | `contentToButtonsSpacing` | 内容到按钮间距 | 14 | Alert 正文或输入框到按钮区域的距离。 |
 | `buttonSpacing` | 按钮间距 | 12 | Alert 横排、竖排按钮之间的距离；不控制表格行间距。 |
-| `buttonContentInsets` | 按钮内边距 | 上下 12，leading/trailing 各 16 | Alert 按钮文字和图标周围的留白。 |
+| `buttonContentInsets` | 按钮内边距 | 上下 12，leading/trailing 各 16 | Alert 按钮及菜单行文字和图标周围的留白。 |
 | `closeButtonImage` | 操作列表关闭按钮图标 | `nil` | `nil` 使用内置 12 点 `chevron.down`；替换后仍沿用标题色。 |
 | `closeButtonSize` | 操作列表关闭按钮边长 | 40 点 | 方形命中区；非法值回退 40 点。 |
 | `adjustsFontForContentSizeCategory` | 动态字号 | `true` | 随系统文字大小缩放基础字体；设为 `false` 使用固定字号。 |
@@ -197,7 +216,7 @@ let popover = BonePopoverView(contentView: content, configuration: config)
 popover.show(from: self)
 ```
 
-内置布局：`.bottomSheet`、`.centerDialog`、`.topBanner`、`.sidePanel`。通用 `.bottomSheet` 贴底、无外部留白，宽度取所在可用区并受 560 点上限；圆角 16 点仅顶部两角、纯色 `systemBackground`、无遮罩无抓手无阴影，0.15 秒底部滑入，内置标题默认居中。操作列表 `BoneDrawerSheetView` 使用分组面板底色并显示抓手。顶部通知默认是模态浮层，不自动消失；可独立开启外部触摸穿透。
+内置布局：`.bottomSheet`、`.centerDialog`、`.topBanner`、`.sidePanel` 和未发布的 `.menu`。通用 `.bottomSheet` 贴底、无外部留白，宽度取所在可用区并受 560 点上限；圆角 16 点仅顶部两角、纯色 `systemBackground`、无遮罩无抓手无阴影，0.15 秒底部滑入，内置标题默认居中。操作列表 `BoneDrawerSheetView` 使用分组面板底色并显示抓手。顶部通知默认是模态浮层，不自动消失；可独立开启外部触摸穿透。`.menu` 采用 `.anchored` 位置，通过来源矩形决定展开位置。
 
 确认框、输入框和操作列表的标题与说明使用 `configuration.contentStyle: PopoverContentStyle`。Alert 标题默认 18 点粗体、正文 17 点、四边内容内边距 24 点；操作列表标题为 17 点 semibold、说明 14 点，内边距为 top/leading/trailing 0、bottom 20。操作列表的行样式与表头间距由 `sheetConfig` 管理。以下为 Alert 的样式示例，可在显示期间逐项修改并自动重新测量：
 
@@ -333,7 +352,7 @@ popover.hidden { /* 已移除后执行；重复关闭请求的 completion 各执
 
 ## 示例与测试
 
-直接打开 `Examples/BonePopoverDemo/BonePopoverDemo.xcodeproj`，选择 iPhone / iPad / Duo 模拟器运行。首页顶部常驻“外观 / 动画 / 遮罩 / 交互”四行控制项，中间是按用途分组的场景列表（每行带一句说明），底部常驻最近一次回调结果。共 23 个场景，含运行时切换风格、注入横/竖折叠区域、自定义 Alert 尺寸、长内容上限、竖排按钮、窄空间回退、自定义字体与间距、多窗口展示和三种 Toast。默认操作列表（场景 2）、即时调整字体/行高/间距（13）及玻璃遮罩（19）均使用 `BoneDrawerSheetView`；原分组选择场景 18 与单选、多选、拖动及固定高度滚动场景 20/21/22 归入“底部操作列表变体”。导航栏“标题对齐”菜单可选择预设默认、左、中、右，再打开确认框或操作列表预览。
+直接打开 `Examples/BonePopoverDemo/BonePopoverDemo.xcodeproj`，选择 iPhone / iPad / Duo 模拟器运行。首页顶部常驻“外观 / 动画 / 遮罩 / 交互”四行控制项，中间是按用途分组的场景列表（每行带一句说明），底部常驻最近一次回调结果。共 24 个场景，含运行时切换风格、注入横/竖折叠区域、自定义 Alert 尺寸、长内容上限、竖排按钮、窄空间回退、自定义字体与间距、多窗口展示、三种 Toast 和按钮旁菜单。默认操作列表（场景 2）、即时调整字体/行高/间距（13）及玻璃遮罩（19）均使用 `BoneDrawerSheetView`；原分组选择场景 18 与单选、多选、拖动及固定高度滚动场景 20/21/22 归入“底部操作列表变体”；新增场景 23 演示 `BoneMenuView`。导航栏“标题对齐”菜单可选择预设默认、左、中、右，再打开确认框或操作列表预览。
 
 导航栏“关闭交互”打开交互体验页，提供背景/外部点击/穿透开关、自动/四向/单向滑动选择、50/100/200 点阈值，以及底层点击计数。菜单“交互方案”可快速验证透明外部关闭、穿透并关闭、仅左滑等组合。
 

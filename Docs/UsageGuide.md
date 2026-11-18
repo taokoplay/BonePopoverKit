@@ -6,9 +6,9 @@ BonePopoverKit 是基于 UIKit 的独立弹窗组件，通过 Swift Package 集�
 
 参数表统一采用“字段、名称、默认值、说明”，每个字段单独一行。样式、材质外观、布局、动画、窗口与交互分别配置，默认值和生效范围在对应表格中说明。
 
-底部操作列表当前统一使用 `BoneDrawerSheetView`，旧 `BoneActionSheetView` / `PopoverAction` 已删除。升级已有调用请先看 [操作列表迁移表](Migration.md#action-sheet-migration)，`v0.1.0` 的功能调整与修复见 [更新日志](../CHANGELOG.md#v0.1.0)。
+底部操作列表当前统一使用 `BoneDrawerSheetView`，旧 `BoneActionSheetView` / `PopoverAction` 已删除。升级已有调用请先看 [操作列表迁移表](Migration.md#action-sheet-migration)，`v0.2.0` 的功能调整与修复见 [更新日志](../CHANGELOG.md#v0.2.0)。
 
-`BoneMenuView`、`.menu` 配置与 `.anchored` 位置为当前工作区的未发布新增能力，尚不包含在 `v0.1.0` 标签中。
+`BoneMenuView`、`.menu` 配置与 `.anchored` 位置随 `v0.2.0` 发布。
 
 ## 目录
 
@@ -18,7 +18,7 @@ BonePopoverKit 是基于 UIKit 的独立弹窗组件，通过 Swift Package 集�
   - [3.3 操作列表](#action-sheet)
   - [3.4 选择、排序与固定高度滚动](#sheet-variants)
   - [3.5 Toast 提示](#toast)
-  - [3.6 按钮旁菜单（未发布）](#menu)
+  - [3.6 按钮旁菜单](#menu)
 - [4. 字体、对齐与内容间距](#titles)
 - [5. 外观与液态玻璃](#appearance)
 - [6. 弹窗位置与尺寸](#layout)
@@ -47,9 +47,9 @@ BonePopoverKit 是基于 UIKit 的独立弹窗组件，通过 Swift Package 集�
 | 原生液态玻璃 | 使用包含对应 API 的新 SDK 和编译器构建，运行于 iOS 26+ |
 | Duo 折叠 / 摄像头保留区域 | 使用 Xcode 27.1 / Swift 6.4 构建，运行于 iOS 27.1+ |
 
-Xcode 中选择 **File → Add Package Dependencies**，输入 `https://github.com/taokoplay/BonePopoverKit.git`，选择 **Up to Next Minor Version**、最低版本 `0.1.0`，再给 App target 添加 `BonePopoverKit` library product。
+Xcode 中选择 **File → Add Package Dependencies**，输入 `https://github.com/taokoplay/BonePopoverKit.git`，选择 **Up to Next Minor Version**、最低版本 `0.2.0`，再给 App target 添加 `BonePopoverKit` library product。
 
-其他 Swift Package 可使用 `.package(url: "https://github.com/taokoplay/BonePopoverKit.git", .upToNextMinor(from: "0.1.0"))`，并为调用组件的 target 添加同名 product。本地开发可用 Add Local 选择组件目录，或使用 `.package(path: "../BonePopoverKit")`；需要跟随开发分支时使用 `.package(url: "https://github.com/taokoplay/BonePopoverKit.git", branch: "main")`。
+其他 Swift Package 可使用 `.package(url: "https://github.com/taokoplay/BonePopoverKit.git", .upToNextMinor(from: "0.2.0"))`，并为调用组件的 target 添加同名 product。本地开发可用 Add Local 选择组件目录，或使用 `.package(path: "../BonePopoverKit")`；需要跟随开发分支时使用 `.package(url: "https://github.com/taokoplay/BonePopoverKit.git", branch: "main")`。
 
 业务文件导入：
 
@@ -350,7 +350,7 @@ loading.duration = 2
 
 <a id="menu"></a>
 
-### 3.6 按钮旁菜单（未发布）
+### 3.6 按钮旁菜单
 
 `BoneMenuView` 用于从按钮或局部矩形附近展开紧凑操作。默认优先放在来源下方，下方放不下时尝试上方；两边都放不下时取较大一侧并限高，菜单内部滚动。横向默认对齐来源 leading 边，RTL 对齐相反一边，接近屏幕边缘时收回可用区内；键盘、安全区与折叠保留区域继续生效。
 
@@ -577,7 +577,7 @@ popover.show(from: presenter)
 | `.centerDialog` | 居中 | 420 点 | 缩放 | 关 |
 | `.topBanner` | 顶部 | 560 点 | 顶部滑入 | 开，自动向上 |
 | `.sidePanel` | trailing 侧，高度填满 | 400 点 | trailing 侧滑入 | 开，自动向外 |
-| `.menu`（未发布） | 来源控件下方，空间不足翻上 | 320 点，默认固定 260 点 | 缩放 0.96（0.18 秒） | 关 |
+| `.menu` | 来源控件下方，空间不足翻上 | 320 点，默认固定 260 点 | 缩放 0.96（0.18 秒） | 关 |
 
 通用 `.bottomSheet` 使用纯色表面、圆角 16 点仅顶部两角、贴底无外部留白，宽度取所在可用区并受 560 点上限约束，默认不显示背景遮罩和抓手，也不叠加阴影，内置标题默认居中。`BoneDrawerSheetView` 在此基础上使用分组面板底色并显示抓手；其标题与两侧按钮布局由 `sheetConfig.headerInset` 和 `titleAlignment` 控制。`.topBanner` 的背景遮罩透明度默认是 0.12，不会自动消失；`.centerDialog` 和 `.sidePanel` 默认 0.32。
 

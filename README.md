@@ -4,9 +4,9 @@ BonePopoverKit 是面向 iOS 15+ 的 UIKit 弹窗组件，通过 Swift Package �
 
 内容样式、材质外观、布局、动画和关闭交互分别配置，可在显示期间调整。通过可继承的 `BonePopoverView` 和内容容器 `baseView` 构建业务弹窗，组件负责展示、布局和关闭生命周期。
 
-完整接入、参数和示例见 [使用说明](Docs/UsageGuide.md)，`v0.1.0` 的功能调整与升级影响见 [更新日志](CHANGELOG.md#v0.1.0)。
+完整接入、参数和示例见 [使用说明](Docs/UsageGuide.md)，`v0.2.0` 的功能调整与升级影响见 [更新日志](CHANGELOG.md#v0.2.0)。
 
-当前工作区新增的 `BoneMenuView` 和 `.menu` 预设尚未发布，不包含在 `v0.1.0` 标签中。菜单接入方式见 [按钮旁菜单](Docs/UsageGuide.md#menu)。
+当前版本 `v0.2.0` 包含 `BoneMenuView` 和 `.menu` 预设。菜单接入方式见 [按钮旁菜单](Docs/UsageGuide.md#menu)。
 
 | 文档 | 内容 |
 | --- | --- |
@@ -19,10 +19,10 @@ BonePopoverKit 是面向 iOS 15+ 的 UIKit 弹窗组件，通过 Swift Package �
 
 ## 安装
 
-Xcode → File → Add Package Dependencies，输入仓库地址 `https://github.com/taokoplay/BonePopoverKit.git`，选择 **Up to Next Minor Version**、最低版本 `0.1.0`，再给 App target 添加 `BonePopoverKit` product。其他 Swift Package 可使用：
+Xcode → File → Add Package Dependencies，输入仓库地址 `https://github.com/taokoplay/BonePopoverKit.git`，选择 **Up to Next Minor Version**、最低版本 `0.2.0`，再给 App target 添加 `BonePopoverKit` product。其他 Swift Package 可使用：
 
 ```swift
-.package(url: "https://github.com/taokoplay/BonePopoverKit.git", .upToNextMinor(from: "0.1.0"))
+.package(url: "https://github.com/taokoplay/BonePopoverKit.git", .upToNextMinor(from: "0.2.0"))
 ```
 
 本地开发也可通过 Add Local 选择组件目录，或使用 `.package(path: "../BonePopoverKit")`。需要跟随开发分支时使用 `.package(url: "https://github.com/taokoplay/BonePopoverKit.git", branch: "main")`。
@@ -107,7 +107,7 @@ sheet.show(from: self)
 
 内置文案由各组件提供入口：`alert.confirmTitle` / `alert.cancelTitle`（默认“确认”“取消”）、`sheet.confirmTitle`（默认“确定”）、`sheet.closeAccessibilityLabel`（默认“关闭”）、`toast.typeDescriptions`（默认“成功”“失败”“提示”“加载中”）、`popover.backdropAccessibilityLabel`（默认 `NSLocalizedString("Dismiss")`）。主题与动画同样可选：`configuration.interfaceStyle` 默认 `.unspecified` 跟随宿主，设为 `.light` / `.dark` 可固定弹层外观；`PopoverAnimation.scale(0.8)` 可调整缩放幅度，`.scale` 仍是 0.92。与阅读器旧基类的逐项对照见 [阅读器对照](Docs/ReaderParity.md)。
 
-## 按钮旁菜单（未发布）
+## 按钮旁菜单
 
 `BoneMenuView` 从来源按钮附近展开，支持图标、分组、选中态、禁用项与危险操作。默认宽 260 点、最大宽 320 点、四角 14 点、来源间距 8 点；优先向下，空间不足时翻到上方，长菜单内部滚动。默认无背景压暗，点外部关闭并拦截该次点击。
 
@@ -216,7 +216,7 @@ let popover = BonePopoverView(contentView: content, configuration: config)
 popover.show(from: self)
 ```
 
-内置布局：`.bottomSheet`、`.centerDialog`、`.topBanner`、`.sidePanel` 和未发布的 `.menu`。通用 `.bottomSheet` 贴底、无外部留白，宽度取所在可用区并受 560 点上限；圆角 16 点仅顶部两角、纯色 `systemBackground`、无遮罩无抓手无阴影，0.15 秒底部滑入，内置标题默认居中。操作列表 `BoneDrawerSheetView` 使用分组面板底色并显示抓手。顶部通知默认是模态浮层，不自动消失；可独立开启外部触摸穿透。`.menu` 采用 `.anchored` 位置，通过来源矩形决定展开位置。
+内置布局：`.bottomSheet`、`.centerDialog`、`.topBanner`、`.sidePanel` 和 `.menu`。通用 `.bottomSheet` 贴底、无外部留白，宽度取所在可用区并受 560 点上限；圆角 16 点仅顶部两角、纯色 `systemBackground`、无遮罩无抓手无阴影，0.15 秒底部滑入，内置标题默认居中。操作列表 `BoneDrawerSheetView` 使用分组面板底色并显示抓手。顶部通知默认是模态浮层，不自动消失；可独立开启外部触摸穿透。`.menu` 采用 `.anchored` 位置，通过来源矩形决定展开位置。
 
 确认框、输入框和操作列表的标题与说明使用 `configuration.contentStyle: PopoverContentStyle`。Alert 标题默认 18 点粗体、正文 17 点、四边内容内边距 24 点；操作列表标题为 17 点 semibold、说明 14 点，内边距为 top/leading/trailing 0、bottom 20。操作列表的行样式与表头间距由 `sheetConfig` 管理。以下为 Alert 的样式示例，可在显示期间逐项修改并自动重新测量：
 
